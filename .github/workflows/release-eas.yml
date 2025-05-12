@@ -23,13 +23,10 @@ jobs:
     - name: Install EAS CLI
       run: npm install -g eas-cli
     
-    - name: Login to EAS
-      run: eas login --non-interactive
-      env:
-        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-    
     - name: Configure EAS
       run: eas build:configure
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Build Android Production
       id: android-build
@@ -38,11 +35,15 @@ jobs:
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
         echo "Waiting for Android build to complete..."
         eas build:wait --id $BUILD_ID
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Download Android Artifact
       run: |
         BUILD_ID=${{ steps.android-build.outputs.build_id }}
         eas build:download --id $BUILD_ID --output android-build.apk
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Build iOS Production
       id: ios-build
@@ -51,11 +52,15 @@ jobs:
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
         echo "Waiting for iOS build to complete..."
         eas build:wait --id $BUILD_ID
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Download iOS Artifact
       run: |
         BUILD_ID=${{ steps.ios-build.outputs.build_id }}
         eas build:download --id $BUILD_ID --output ios-build.ipa
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Upload Android Artifact to Release
       uses: softprops/action-gh-release@v1
