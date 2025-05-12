@@ -40,7 +40,11 @@ jobs:
     - name: Build Android Production
       id: android-build
       run: |
-        BUILD_ID=$(eas build --platform android --profile production --non-interactive --json | jq -r '.id')
+        echo "Starting Android build..."
+        BUILD_RESPONSE=$(eas build --platform android --profile production --non-interactive --json)
+        echo "Build response: $BUILD_RESPONSE"
+        BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.id')
+        echo "Extracted build ID: $BUILD_ID"
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
         echo "Waiting for Android build to complete..."
         eas build:wait --id $BUILD_ID
@@ -54,35 +58,11 @@ jobs:
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
-    - name: Build iOS Production
-      id: ios-build
-      run: |
-        BUILD_ID=$(eas build --platform ios --profile production --non-interactive --json | jq -r '.id')
-        echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
-        echo "Waiting for iOS build to complete..."
-        eas build:wait --id $BUILD_ID
-      env:
-        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-    
-    - name: Download iOS Artifact
-      run: |
-        BUILD_ID=${{ steps.ios-build.outputs.build_id }}
-        eas build:download --id $BUILD_ID --output ios-build.ipa
-      env:
-        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-    
     - name: Upload Android Artifact to Release
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
         files: android-build.apk
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Upload iOS Artifact to Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ios-build.ipa
         token: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Upload Android Artifact to Workflow
@@ -91,10 +71,34 @@ jobs:
       with:
         name: android-build
         path: android-build.apk
+    
+    # - name: Build iOS Production
+    #   id: ios-build
+    #   run: |
+    #     BUILD_ID=$(eas build --platform ios --profile production --non-interactive --json | jq -r '.id')
+    #     echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+    #     echo "Waiting for iOS build to complete..."
+    #     eas build:wait --id $BUILD_ID
+    #   env:
+    #     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    
+    # - name: Download iOS Artifact
+    #   run: |
+    #     BUILD_ID=${{ steps.ios-build.outputs.build_id }}
+    #     eas build:download --id $BUILD_ID --output ios-build.ipa
+    #   env:
+    #     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    
+    # - name: Upload iOS Artifact to Release
+    #   if: github.event_name == 'release'
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     files: ios-build.ipa
+    #     token: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Upload iOS Artifact to Workflow
-      if: github.event_name == 'push'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-build
-        path: ios-build.ipa 
+    # - name: Upload iOS Artifact to Workflow
+    #   if: github.event_name == 'push'
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: ios-build
+    #     path: ios-build.ipa 
