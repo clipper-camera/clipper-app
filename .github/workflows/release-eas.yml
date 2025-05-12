@@ -1,0 +1,70 @@
+name: EAS Production Build
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install EAS CLI
+      run: npm install -g eas-cli
+    
+    - name: Login to EAS
+      run: eas login --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    
+    - name: Configure EAS
+      run: eas build:configure
+    
+    - name: Build Android Production
+      id: android-build
+      run: |
+        BUILD_ID=$(eas build --platform android --profile production --non-interactive --json | jq -r '.id')
+        echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+        echo "Waiting for Android build to complete..."
+        eas build:wait --id $BUILD_ID
+    
+    - name: Download Android Artifact
+      run: |
+        BUILD_ID=${{ steps.android-build.outputs.build_id }}
+        eas build:download --id $BUILD_ID --output android-build.apk
+    
+    - name: Build iOS Production
+      id: ios-build
+      run: |
+        BUILD_ID=$(eas build --platform ios --profile production --non-interactive --json | jq -r '.id')
+        echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+        echo "Waiting for iOS build to complete..."
+        eas build:wait --id $BUILD_ID
+    
+    - name: Download iOS Artifact
+      run: |
+        BUILD_ID=${{ steps.ios-build.outputs.build_id }}
+        eas build:download --id $BUILD_ID --output ios-build.ipa
+    
+    - name: Upload Android Artifact to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: android-build.apk
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload iOS Artifact to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ios-build.ipa
+        token: ${{ secrets.GITHUB_TOKEN }} 
