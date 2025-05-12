@@ -45,10 +45,47 @@ jobs:
     - name: Build Android Debug APK
       run: |
         cd android
-        ./gradlew assembleDebug
+        ./gradlew assembleDebug --no-daemon
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
         path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  ios:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install Expo CLI
+      run: npm install -g expo-cli
+    
+    - name: Generate iOS project
+      run: npx expo prebuild -p ios
+    
+    - name: Install CocoaPods
+      run: |
+        cd ios
+        pod install
+    
+    - name: Build iOS Debug
+      run: |
+        cd ios
+        xcodebuild -workspace clipper.xcworkspace -scheme clipper -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 14' build
+    
+    - name: Upload iOS Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build
+        path: ios/build
