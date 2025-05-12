@@ -44,31 +44,49 @@ jobs:
         BUILD_RESPONSE=$(eas build --platform android --profile production --non-interactive --json)
         echo "Build response: $BUILD_RESPONSE"
         BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.[0].id')
+        BUILD_URL=$(echo "$BUILD_RESPONSE" | jq -r '.[0].artifacts.buildUrl')
         echo "Extracted build ID: $BUILD_ID"
+        echo "Extracted build URL: $BUILD_URL"
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+        echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Download Android Artifact
       run: |
-        BUILD_ID=${{ steps.android-build.outputs.build_id }}
-        eas build:download --id $BUILD_ID --output android-build.apk
+        BUILD_URL=${{ steps.android-build.outputs.build_url }}
+        curl -L "$BUILD_URL" -o android-build.aab
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    - name: Convert AAB to APK
+      run: |
+        # Download bundletool
+        curl -L "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o bundletool.jar
+        
+        # Convert AAB to APK
+        java -jar bundletool.jar build-apks --bundle=android-build.aab --output=android-build.apks --mode=universal
+        
+        # Extract the APK from the APKS file (it's just a zip)
+        unzip -p android-build.apks universal.apk > android-build.apk
     
     - name: Upload Android Artifact to Release
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: android-build.apk
+        files: |
+          android-build.apk
+          android-build.aab
         token: ${{ secrets.GITHUB_TOKEN }}
-        
+    
     - name: Upload Android Artifact to Workflow
       if: github.event_name == 'push'
       uses: actions/upload-artifact@v4
       with:
-        name: android-build
-        path: android-build.apk
+        name: android-builds
+        path: |
+          android-build.apk
+          android-build.aab
     
     # - name: Build iOS Production
     #   id: ios-build
@@ -77,15 +95,18 @@ jobs:
     #     BUILD_RESPONSE=$(eas build --platform ios --profile production --non-interactive --json)
     #     echo "Build response: $BUILD_RESPONSE"
     #     BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.[0].id')
+    #     BUILD_URL=$(echo "$BUILD_RESPONSE" | jq -r '.[0].artifacts.buildUrl')
     #     echo "Extracted build ID: $BUILD_ID"
+    #     echo "Extracted build URL: $BUILD_URL"
     #     echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+    #     echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
     #   env:
     #     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     # - name: Download iOS Artifact
     #   run: |
-    #     BUILD_ID=${{ steps.ios-build.outputs.build_id }}
-    #     eas build:download --id $BUILD_ID --output ios-build.ipa
+    #     BUILD_URL=${{ steps.ios-build.outputs.build_url }}
+    #     curl -L "$BUILD_URL" -o ios-build.ipa
     #   env:
     #     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
