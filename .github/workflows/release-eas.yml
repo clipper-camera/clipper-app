@@ -46,8 +46,6 @@ jobs:
         BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.[0].id')
         echo "Extracted build ID: $BUILD_ID"
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
-        echo "Waiting for Android build to complete..."
-        eas build:wait --id $BUILD_ID
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
@@ -75,10 +73,12 @@ jobs:
     # - name: Build iOS Production
     #   id: ios-build
     #   run: |
-    #     BUILD_ID=$(eas build --platform ios --profile production --non-interactive --json | jq -r '.id')
+    #     echo "Starting iOS build..."
+    #     BUILD_RESPONSE=$(eas build --platform ios --profile production --non-interactive --json)
+    #     echo "Build response: $BUILD_RESPONSE"
+    #     BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.[0].id')
+    #     echo "Extracted build ID: $BUILD_ID"
     #     echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
-    #     echo "Waiting for iOS build to complete..."
-    #     eas build:wait --id $BUILD_ID
     #   env:
     #     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
