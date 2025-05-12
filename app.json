@@ -34,7 +34,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.clipper.clipper-app"
+      "package": "com.clipper.clipper_app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
