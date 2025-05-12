@@ -43,7 +43,7 @@ jobs:
         echo "Starting Android build..."
         BUILD_RESPONSE=$(eas build --platform android --profile production --non-interactive --json)
         echo "Build response: $BUILD_RESPONSE"
-        BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.id')
+        BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.[0].id')
         echo "Extracted build ID: $BUILD_ID"
         echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
         echo "Waiting for Android build to complete..."
