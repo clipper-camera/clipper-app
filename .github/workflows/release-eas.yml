@@ -3,6 +3,9 @@ name: EAS Production Build
 on:
   release:
     types: [created]
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -24,7 +27,7 @@ jobs:
       run: npm install -g eas-cli
     
     - name: Configure EAS
-      run: eas build:configure
+      run: eas build:configure --platform android,ios
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
