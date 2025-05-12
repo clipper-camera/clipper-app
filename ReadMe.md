@@ -48,9 +48,6 @@ eas build --platform ios # (untested...)
 
 ## Example Screenshots
 
-<img src="docs/Screenshot_20250511_202140_clipper-app.jpg" alt="screenshot 1" width="200"/>
-<img src="docs/Screenshot_20250511_202211_clipper-app.jpg" alt="screenshot 2" width="200"/>
-<img src="docs/Screenshot_20250511_202401_clipper-app.jpg" alt="screenshot 3" width="200"/>
-<img src="docs/Screenshot_20250511_202451_clipper-app.jpg" alt="screenshot 4" width="200"/>
+<img src="docs/Screenshot_20250511_202140_clipper-app.jpg" alt="screenshot 1" width="200"/> <img src="docs/Screenshot_20250511_202211_clipper-app.jpg" alt="screenshot 2" width="200"/> <img src="docs/Screenshot_20250511_202401_clipper-app.jpg" alt="screenshot 3" width="200"/> <img src="docs/Screenshot_20250511_202451_clipper-app.jpg" alt="screenshot 4" width="200"/>
 
 
