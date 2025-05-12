@@ -37,3 +37,9 @@ yarn-error.*
 
 android/
 ios/
+
+
+credentials/
+credentials.json
+keystores/
+

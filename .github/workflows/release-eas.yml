@@ -26,6 +26,12 @@ jobs:
     - name: Install EAS CLI
       run: npm install -g eas-cli
     
+    - name: Setup Android Keystore
+      run: |
+        mkdir -p credentials/android
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > credentials/android/keystore.jks
+        echo "${{ secrets.CREDENTIALS_JSON_BASE64 }}" | base64 -d > credentials.json
+    
     - name: Configure EAS
       run: eas build:configure --platform all
       env:
