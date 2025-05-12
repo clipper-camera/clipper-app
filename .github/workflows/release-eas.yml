@@ -3,9 +3,9 @@ name: EAS Production Build
 on:
   release:
     types: [created]
-  push:
-    branches:
-      - master
+  # push:
+  #   branches:
+  #     - master
 
 jobs:
   build:
@@ -70,23 +70,33 @@ jobs:
         # Extract the APK from the APKS file (it's just a zip)
         unzip -p android-build.apks universal.apk > android-build.apk
     
-    - name: Upload Android Artifact to Release
+    - name: Upload Android APK to Release
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          android-build.apk
-          android-build.aab
+        files: android-build.apk
         token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Upload Android Artifact to Workflow
+    - name: Upload Android AAB to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: android-build.aab
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload Android APK to Workflow
       if: github.event_name == 'push'
       uses: actions/upload-artifact@v4
       with:
-        name: android-builds
-        path: |
-          android-build.apk
-          android-build.aab
+        name: android-apk
+        path: android-build.apk
+    
+    - name: Upload Android AAB to Workflow
+      if: github.event_name == 'push'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-aab
+        path: android-build.aab
     
     # - name: Build iOS Production
     #   id: ios-build
