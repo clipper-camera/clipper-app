@@ -74,15 +74,20 @@ jobs:
     - name: Generate iOS project
       run: npx expo prebuild -p ios
     
+    - name: List iOS directory contents
+      run: ls -la ios/
+    
     - name: Install CocoaPods
       run: |
         cd ios
         pod install
+        ls -la
     
     - name: Build iOS Debug
       run: |
         cd ios
-        xcodebuild -workspace clipper.xcworkspace -scheme clipper -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 14' build
+        xcodebuild -list
+        xcodebuild -workspace clipperapp.xcworkspace -scheme clipperapp -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 14' build
     
     - name: Upload iOS Build
       uses: actions/upload-artifact@v4
