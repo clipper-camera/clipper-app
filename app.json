@@ -32,7 +32,10 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_MEDIA_LOCATION"
       ],
       "package": "com.clipper.clipper_app"
     },
@@ -59,8 +62,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "9fa733de-085c-4d01-bad3-d465f6451320"
+        "projectId": "fd687b2f-f93e-4dca-a983-136f3af2ab25"
       }
-    }
+    },
+    "owner": "goldbattle"
   }
 }
