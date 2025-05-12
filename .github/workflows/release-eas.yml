@@ -66,13 +66,29 @@ jobs:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
     - name: Upload Android Artifact to Release
+      if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
         files: android-build.apk
         token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Upload iOS Artifact to Release
+      if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
         files: ios-build.ipa
-        token: ${{ secrets.GITHUB_TOKEN }} 
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload Android Artifact to Workflow
+      if: github.event_name == 'push'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-build
+        path: android-build.apk
+        
+    - name: Upload iOS Artifact to Workflow
+      if: github.event_name == 'push'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build
+        path: ios-build.ipa 
