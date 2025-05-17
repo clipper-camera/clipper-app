@@ -1,0 +1,96 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install Expo CLI
+      run: npm install -g expo-cli
+    
+    - name: Generate Android project
+      run: npx expo prebuild -p android
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+    
+    - name: Setup Android environment variables
+      run: |
+        echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+    
+    - name: Build Android Debug APK
+      run: |
+        cd android
+        ./gradlew assembleDebug --no-daemon
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  ios:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install Expo CLI
+      run: npm install -g expo-cli
+    
+    - name: Generate iOS project
+      run: npx expo prebuild -p ios
+    
+    - name: List iOS directory contents
+      run: ls -la ios/
+    
+    - name: Install CocoaPods
+      run: |
+        cd ios
+        pod install
+        ls -la
+    
+    - name: Build iOS Debug
+      run: |
+        cd ios
+        xcodebuild -list
+        xcodebuild -workspace clipperapp.xcworkspace -scheme clipperapp -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 14' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+    
+    - name: Upload iOS Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build
+        path: ios/build

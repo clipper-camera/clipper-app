@@ -3,9 +3,9 @@ name: EAS Production Build
 on:
   release:
     types: [created]
-  push:
-    branches:
-      - master
+  # push:
+  #   branches:
+  #     - master
 
 permissions:
   contents: write
