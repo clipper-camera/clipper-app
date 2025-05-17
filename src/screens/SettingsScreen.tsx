@@ -143,6 +143,7 @@ export default function SettingsScreen() {
   const [serverLatency, setServerLatency] = useState<number | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [wifiOnlyEnabled, setWifiOnlyEnabled] = useState(true);
+  const [showAdminZone, setShowAdminZone] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -365,20 +366,25 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <Text style={[styles.headerText, { color: themeColors[theme].text }]}>Settings</Text>
           <View style={styles.serverStatusContainer}>
-            <View style={[
-              styles.serverStatusDot,
-              { backgroundColor: serverAvailable ? '#4CAF50' : '#F44336' }
-            ]} />
-            <View>
-              <Text style={[styles.serverStatusText, { color: themeColors[theme].text }]}>
-                {serverAvailable ? 'Server Online' : 'Server Offline'}
-              </Text>
-              {serverLatency !== null && (
-                <Text style={[styles.latencyText, { color: themeColors[theme].text }]}>
-                  {serverLatency}ms ping
+            <TouchableOpacity 
+              style={styles.serverStatusTouchable}
+              onPress={() => setShowAdminZone(!showAdminZone)}
+            >
+              <View style={[
+                styles.serverStatusDot,
+                { backgroundColor: serverAvailable ? '#4CAF50' : '#F44336' }
+              ]} />
+              <View>
+                <Text style={[styles.serverStatusText, { color: themeColors[theme].text }]}>
+                  {serverAvailable ? 'Server Online' : 'Server Offline'}
                 </Text>
-              )}
-            </View>
+                {serverLatency !== null && (
+                  <Text style={[styles.latencyText, { color: themeColors[theme].text }]}>
+                    {serverLatency}ms ping
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -462,22 +468,24 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View style={styles.section}>
-            <Text style={[styles.headerText, { color: themeColors[theme].text }]}>Admin Danger Zone</Text>
-            <Text style={[styles.dangerZoneSubtitle, { color: themeColors[theme].text }]}>These actions cannot be undone</Text>
-            <TouchableOpacity 
-              style={[styles.clearButton, { backgroundColor: themeColors[theme].error }]} 
-              onPress={handleClearHistory}
-            >
-              <Text style={[styles.clearButtonText, { color: themeColors[theme].text }]}>Clear History</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.clearMessagesButton, { backgroundColor: themeColors[theme].warning }]} 
-              onPress={handleClearMessages}
-            >
-              <Text style={[styles.clearMessagesButtonText, { color: themeColors[theme].text }]}>Clear Historical Messages</Text>
-            </TouchableOpacity>
-          </View>
+          {showAdminZone && (
+            <View style={styles.section}>
+              <Text style={[styles.headerText, { color: themeColors[theme].text }]}>Admin Danger Zone</Text>
+              <Text style={[styles.dangerZoneSubtitle, { color: themeColors[theme].text }]}>These actions cannot be undone</Text>
+              <TouchableOpacity 
+                style={[styles.clearButton, { backgroundColor: themeColors[theme].error }]} 
+                onPress={handleClearHistory}
+              >
+                <Text style={[styles.clearButtonText, { color: themeColors[theme].text }]}>Clear History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.clearMessagesButton, { backgroundColor: themeColors[theme].warning }]} 
+                onPress={handleClearMessages}
+              >
+                <Text style={[styles.clearMessagesButtonText, { color: themeColors[theme].text }]}>Clear Historical Messages</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -653,5 +661,9 @@ const styles = StyleSheet.create({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  serverStatusTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
