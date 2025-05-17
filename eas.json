@@ -12,7 +12,14 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "credentialsSource": "local",
+        "keystore": {
+          "keystorePath": "./credentials/android/keystore.jks"
+        }
+      }
     }
   },
   "submit": {

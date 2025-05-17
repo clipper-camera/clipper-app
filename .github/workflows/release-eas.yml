@@ -54,6 +54,9 @@ jobs:
         echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     
     - name: Download Android Artifact
       run: |
