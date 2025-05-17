@@ -61,23 +61,12 @@ jobs:
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     
-    - name: Download Android Artifact
+    - name: Download Android APK
       run: |
         BUILD_URL=${{ steps.android-build.outputs.build_url }}
-        curl -L "$BUILD_URL" -o android-build.aab
+        curl -L "$BUILD_URL" -o android-build.apk
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-    - name: Convert AAB to APK
-      run: |
-        # Download bundletool
-        curl -L "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar" -o bundletool.jar
-        
-        # Convert AAB to APK
-        java -jar bundletool.jar build-apks --bundle=android-build.aab --output=android-build.apks --mode=universal
-        
-        # Extract the APK from the APKS file (it's just a zip)
-        unzip -p android-build.apks universal.apk > android-build.apk
     
     - name: Upload Android APK to Release
       if: github.event_name == 'release'
@@ -86,26 +75,12 @@ jobs:
         files: android-build.apk
         token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Upload Android AAB to Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: android-build.aab
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
     - name: Upload Android APK to Workflow
       if: github.event_name == 'push'
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
         path: android-build.apk
-    
-    - name: Upload Android AAB to Workflow
-      if: github.event_name == 'push'
-      uses: actions/upload-artifact@v4
-      with:
-        name: android-aab
-        path: android-build.aab
     
     # - name: Build iOS Production
     #   id: ios-build

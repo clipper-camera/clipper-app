@@ -36,6 +36,7 @@ Now start the local development server
 
 ```bash
 npx expo start
+npx expo run:android # if you want to use native client
 ```
 
 To build the app for production via EAS build system
