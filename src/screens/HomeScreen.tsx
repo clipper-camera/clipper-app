@@ -56,19 +56,9 @@ export default function HomeScreen() {
   const checkSettings = async () => {
     try {
       const settings = await settingsService.getSettings();
-      if (!settings.userId || !settings.apiEndpoint) {
-        Alert.alert(
-          "Settings Required",
-          "Please configure your User ID and API endpoint in Settings before using the app.",
-          [
-            {
-              text: "Go to Settings",
-              onPress: () => navigation.navigate('Settings'),
-              style: "default"
-            }
-          ],
-          { cancelable: false }
-        );
+      if (!settings.userApiKey || !settings.apiEndpoint) {
+        navigation.navigate('Settings');
+        return;
       }
     } catch (error) {
       console.error('Error checking settings:', error);

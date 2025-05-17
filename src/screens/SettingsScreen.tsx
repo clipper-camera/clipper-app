@@ -25,7 +25,7 @@ const NOTIFICATIONS_KEY = '@notifications_enabled';
 const WIFI_ONLY_KEY = '@wifi_only_enabled';
 
 interface Settings {
-  userId: string;
+  userApiKey: string;
   apiEndpoint: string;
   messageCheckFrequency: number;
 }
@@ -66,12 +66,12 @@ const CHECK_FREQUENCIES = [
 const ConfigurationSection = ({ settings, setSettings, saveSettings }: ConfigurationSectionProps) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Configuration</Text>
-    <Text style={styles.label}>User ID</Text>
+    <Text style={styles.label}>User API Key</Text>
     <TextInput
       style={styles.input}
-      value={settings.userId}
-      onChangeText={(text) => setSettings({ ...settings, userId: text })}
-      placeholder="Enter User ID"
+      value={settings.userApiKey}
+      onChangeText={(text) => setSettings({ ...settings, userApiKey: text })}
+      placeholder="Enter API Key"
       placeholderTextColor="#666"
     />
     <Text style={styles.label}>API Endpoint</Text>
@@ -131,10 +131,11 @@ export default function SettingsScreen() {
   const { theme, toggleTheme } = useTheme();
   const navigation = useNavigation<SettingsScreenProps['navigation']>();
   const [settings, setSettings] = useState<Settings>({
-    userId: '',
+    userApiKey: '',
     apiEndpoint: '',
     messageCheckFrequency: 900000
   });
+  const [showApiKey, setShowApiKey] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<UploadItem[]>([]);
   const [history, setHistory] = useState<UploadItem[]>([]);
   const [checkFrequency, setCheckFrequency] = useState(settings.messageCheckFrequency || 900000);
@@ -205,15 +206,21 @@ export default function SettingsScreen() {
   const handleSaveSettings = async () => {
     try {
       // Validate inputs
-      if (!settings.userId.trim() || !settings.apiEndpoint.trim()) {
-        Alert.alert('Error', 'User ID and API Endpoint are required');
+      if (!settings.userApiKey.trim() || !settings.apiEndpoint.trim()) {
+        Alert.alert('Error', 'User API Key and API Endpoint are required');
         return;
+      }
+
+      // Add https:// if not present
+      let endpoint = settings.apiEndpoint.trim().toLowerCase();
+      if (endpoint && !endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+        endpoint = `https://${endpoint}`;
       }
 
       // Update settings
       await settingsService.updateSettings({
-        userId: settings.userId.trim(),
-        apiEndpoint: settings.apiEndpoint.trim(),
+        userApiKey: settings.userApiKey.trim(),
+        apiEndpoint: endpoint,
         messageCheckFrequency: settings.messageCheckFrequency
       });
 
@@ -378,18 +385,32 @@ export default function SettingsScreen() {
         <View style={styles.content}>
           <View style={styles.section}>
             <Text style={[styles.headerText, { color: themeColors[theme].text }]}>Configuration</Text>
-            <Text style={[styles.label, { color: themeColors[theme].text }]}>User ID</Text>
-            <TextInput
-              style={[styles.input, { 
-                color: themeColors[theme].text, 
-                borderColor: themeColors[theme].border,
-                backgroundColor: themeColors[theme].background 
-              }]}
-              value={settings.userId}
-              onChangeText={(text) => setSettings({ ...settings, userId: text })}
-              placeholder="Enter User ID"
-              placeholderTextColor={themeColors[theme].secondaryText}
-            />
+            <Text style={[styles.label, { color: themeColors[theme].text }]}>User API Key</Text>
+            <View style={styles.apiKeyContainer}>
+              <TextInput
+                style={[styles.input, { 
+                  color: themeColors[theme].text, 
+                  borderColor: themeColors[theme].border,
+                  backgroundColor: themeColors[theme].background,
+                  flex: 1
+                }]}
+                value={settings.userApiKey}
+                onChangeText={(text) => setSettings({ ...settings, userApiKey: text })}
+                placeholder="Enter API Key"
+                placeholderTextColor={themeColors[theme].secondaryText}
+                secureTextEntry={!showApiKey}
+              />
+              <TouchableOpacity 
+                style={styles.visibilityToggle}
+                onPress={() => setShowApiKey(!showApiKey)}
+              >
+                <FontAwesome6 
+                  name={showApiKey ? "eye-slash" : "eye"} 
+                  size={20} 
+                  color={themeColors[theme].text} 
+                />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.label, { color: themeColors[theme].text }]}>API Endpoint</Text>
             <TextInput
               style={[styles.input, { 
@@ -398,9 +419,12 @@ export default function SettingsScreen() {
                 backgroundColor: themeColors[theme].background 
               }]}
               value={settings.apiEndpoint}
-              onChangeText={(text) => setSettings({ ...settings, apiEndpoint: text })}
+              onChangeText={(text) => {
+                setSettings({ ...settings, apiEndpoint: text.toLowerCase() });
+              }}
               placeholder="Enter API Endpoint"
               placeholderTextColor={themeColors[theme].secondaryText}
+              autoCapitalize="none"
             />
             <Text style={[styles.label, { color: themeColors[theme].text }]}>Message Check Frequency</Text>
             <View style={[styles.pickerContainer, { 
@@ -613,5 +637,21 @@ const styles = StyleSheet.create({
   uploadStatus: {
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  apiKeyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  visibilityToggle: {
+    position: 'absolute',
+    right: 12,
+    top: '70%',
+    transform: [{ translateY: -40 }],
+    height: 40,
+    width: 40,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

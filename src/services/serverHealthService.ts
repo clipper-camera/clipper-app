@@ -19,10 +19,7 @@ class ServerHealthService {
       }
 
       const baseUrl = settings.apiEndpoint.replace(/\/+$/, '');
-      const urlWithProtocol = baseUrl.startsWith('http://') || baseUrl.startsWith('https://') 
-        ? baseUrl 
-        : `http://${baseUrl}`;
-      const healthEndpoint = `${urlWithProtocol}/_api/v1/health`;
+      const healthEndpoint = `${baseUrl}/_api/v1/health`;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { contactsService } from './contactsService';
 
 export interface Settings {
-  userId: string;
+  userApiKey: string;
   apiEndpoint: string;
   messageCheckFrequency: number;
 }
@@ -12,9 +12,9 @@ const SETTINGS_STORAGE_KEY = '@app_settings';
 class SettingsService {
   private static instance: SettingsService;
   private settings: Settings = {
-    userId: '',
+    userApiKey: '',
     apiEndpoint: '',
-    messageCheckFrequency: 180000 // Default 3 minutes
+    messageCheckFrequency: 900000 // Default 15 minutes
   };
 
   private constructor() {
@@ -36,23 +36,20 @@ class SettingsService {
         const parsedSettings = JSON.parse(savedSettings);
         // Ensure the API endpoint has the correct format
         const baseUrl = parsedSettings.apiEndpoint?.replace(/\/+$/, '') || '';
-        const urlWithProtocol = baseUrl.startsWith('http://') || baseUrl.startsWith('https://') 
-          ? baseUrl 
-          : `http://${baseUrl}`;
         
         this.settings = {
-          userId: parsedSettings.userId || '',
-          apiEndpoint: urlWithProtocol,
-          messageCheckFrequency: parsedSettings.messageCheckFrequency || 180000
+          userApiKey: parsedSettings.userApiKey || '',
+          apiEndpoint: baseUrl,
+          messageCheckFrequency: parsedSettings.messageCheckFrequency || 900000
         };
       }
     } catch (error) {
       console.error('Error loading settings:', error);
       // Reset to defaults if loading fails
       this.settings = {
-        userId: '',
+        userApiKey: '',
         apiEndpoint: '',
-        messageCheckFrequency: 180000
+        messageCheckFrequency: 900000
       };
     }
   }
@@ -64,8 +61,8 @@ class SettingsService {
   public async updateSettings(newSettings: Partial<Settings>): Promise<void> {
     try {
       // Validate new settings
-      if (newSettings.userId !== undefined && !newSettings.userId.trim()) {
-        throw new Error('User ID cannot be empty');
+      if (newSettings.userApiKey !== undefined && !newSettings.userApiKey.trim()) {
+        throw new Error('User API Key cannot be empty');
       }
 
       if (newSettings.apiEndpoint !== undefined && !newSettings.apiEndpoint.trim()) {
@@ -76,18 +73,15 @@ class SettingsService {
         throw new Error('Message check frequency must be at least 30 seconds');
       }
 
-      // If user ID is changing, clear existing contacts
-      if (newSettings.userId !== undefined && newSettings.userId !== this.settings.userId) {
+      // If user API Key is changing, clear existing contacts
+      if (newSettings.userApiKey !== undefined && newSettings.userApiKey !== this.settings.userApiKey) {
         await contactsService.clearContacts();
       }
 
       // Ensure the API endpoint has the correct format
       if (newSettings.apiEndpoint) {
         const baseUrl = newSettings.apiEndpoint.replace(/\/+$/, '');
-        const urlWithProtocol = baseUrl.startsWith('http://') || baseUrl.startsWith('https://') 
-          ? baseUrl 
-          : `http://${baseUrl}`;
-        newSettings.apiEndpoint = urlWithProtocol;
+        newSettings.apiEndpoint = baseUrl;
       }
 
       // Update settings with new values, preserving existing values if not provided
@@ -107,8 +101,8 @@ class SettingsService {
   private async saveSettings(): Promise<void> {
     try {
       // Validate settings before saving
-      if (!this.settings.userId.trim() || !this.settings.apiEndpoint.trim()) {
-        throw new Error('Invalid settings: User ID and API Endpoint are required');
+      if (!this.settings.userApiKey.trim() || !this.settings.apiEndpoint.trim()) {
+        throw new Error('Invalid settings: User API Key and API Endpoint are required');
       }
 
       await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
@@ -116,6 +110,13 @@ class SettingsService {
       console.error('Error saving settings:', error);
       throw error;
     }
+  }
+
+  validateSettings(): boolean {
+    if (!this.settings.userApiKey.trim() || !this.settings.apiEndpoint.trim()) {
+      return false;
+    }
+    return true;
   }
 }
 

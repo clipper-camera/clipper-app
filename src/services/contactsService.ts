@@ -24,8 +24,8 @@ class ContactsService {
   async fetchContacts(): Promise<Contact[]> {
     try {
       const settings = await settingsService.getSettings();
-      if (!settings.userId || !settings.apiEndpoint) {
-        throw new Error('Settings not configured. Please set User ID and API Endpoint in settings.');
+      if (!settings.userApiKey || !settings.apiEndpoint) {
+        throw new Error('Settings not configured. Please set User API Key and API Endpoint in settings.');
       }
 
       const netInfo = await NetInfo.fetch();
@@ -33,7 +33,7 @@ class ContactsService {
         throw new Error('No internet connection available');
       }
 
-      const response = await fetch(`${settings.apiEndpoint}/_api/v1/contacts/${settings.userId}`);
+      const response = await fetch(`${settings.apiEndpoint}/_api/v1/contacts/${settings.userApiKey}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

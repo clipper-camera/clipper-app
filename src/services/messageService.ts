@@ -100,8 +100,8 @@ class MessageService {
     this.isChecking = true;
     try {
       const settings = await settingsService.getSettings();
-      if (!settings.userId || !settings.apiEndpoint) {
-        console.log('User ID or API endpoint not set');
+      if (!settings.userApiKey || !settings.apiEndpoint) {
+        console.log('User API Key or API endpoint not set');
         return;
       }
 
@@ -110,7 +110,7 @@ class MessageService {
         return;
       }
 
-      const response = await fetch(`${settings.apiEndpoint}/_api/v1/mailbox/${settings.userId}`);
+      const response = await fetch(`${settings.apiEndpoint}/_api/v1/mailbox/${settings.userApiKey}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -133,7 +133,7 @@ class MessageService {
           hasNewMessages = true;
           const newMessage: ReceivedMessage = {
             id: uniqueId,
-            userId,
+            userId: userId,
             displayName: contactMap.get(userId) || `User ${userId}`,
             mediaUrl: fileUrl,
             mediaType: mediaType,

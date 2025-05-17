@@ -176,8 +176,8 @@ class UploadService {
   private async uploadItem(item: UploadQueueItem): Promise<void> {
     try {
       const settings = await settingsService.getSettings();
-      if (!settings.userId || !settings.apiEndpoint) {
-        throw new Error('Settings not configured. Please set User ID and API Endpoint in settings.');
+      if (!settings.userApiKey || !settings.apiEndpoint) {
+        throw new Error('Settings not configured. Please set User API Key and API Endpoint in settings.');
       }
 
       // Check if file exists before attempting upload
@@ -220,7 +220,7 @@ class UploadService {
       }
 
       const formData = new FormData();
-      formData.append('userPass', settings.userId);
+      formData.append('userPass', settings.userApiKey);
       formData.append('mediaType', item.mediaType.toString());
       formData.append('recipients', JSON.stringify(item.recipientIds));
       formData.append('timestamp', item.timestamp.toString());
@@ -238,14 +238,11 @@ class UploadService {
 
       // Ensure the API endpoint has the correct path
       const baseUrl = settings.apiEndpoint.replace(/\/+$/, '');
-      const urlWithProtocol = baseUrl.startsWith('http://') || baseUrl.startsWith('https://') 
-        ? baseUrl 
-        : `http://${baseUrl}`;
-      const uploadEndpoint = `${urlWithProtocol}/_api/v1/upload`;
+      const uploadEndpoint = `${baseUrl}/_api/v1/upload`;
 
       console.log('Attempting upload to:', uploadEndpoint);
       console.log('Request payload:', {
-        userId: settings.userId,
+        userId: settings.userApiKey,
         mediaType: item.mediaType,
         mediaName: mediaValue.name,
         recipients: item.recipientIds,
@@ -339,7 +336,7 @@ class UploadService {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         endpoint: (await settingsService.getSettings()).apiEndpoint,
-        userId: (await settingsService.getSettings()).userId
+        userId: (await settingsService.getSettings()).userApiKey
       });
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
