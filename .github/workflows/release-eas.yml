@@ -34,6 +34,12 @@ jobs:
         mkdir -p credentials/android
         echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > credentials/android/keystore.jks
         echo "${{ secrets.CREDENTIALS_JSON_BASE64 }}" | base64 -d > credentials.json
+        
+        # Debug: List files and show credentials.json
+        echo "Listing files in current directory:"
+        ls -la
+        echo "Listing files in credentials directory:"
+        ls -la credentials/
     
     - name: Configure EAS
       run: eas build:configure --platform all
@@ -54,9 +60,6 @@ jobs:
         echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     
     - name: Download Android Artifact
       run: |
