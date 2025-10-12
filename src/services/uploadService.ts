@@ -40,6 +40,7 @@ interface UploadHistoryItem {
   error?: string;
   progress?: number;
   mediaType: 'image' | 'video';
+  fileSize?: number; // File size in bytes
 }
 
 const QUEUE_STORAGE_KEY = '@upload_queue';
@@ -205,6 +206,10 @@ class UploadService {
       // Update queue item status to uploading
       await this.updateItemStatus(item.id, 'uploading');
 
+      // Get file size for history
+      const fileInfoForSize = await FileSystem.getInfoAsync(item.mediaUri);
+      const fileSize = fileInfoForSize.exists ? fileInfoForSize.size : undefined;
+
       // Add to history with initial status only if it doesn't already exist
       const existingHistoryIndex = this.history.findIndex(h => h.id === item.id);
       if (existingHistoryIndex === -1) {
@@ -213,7 +218,8 @@ class UploadService {
           timestamp: item.timestamp,
           status: 'uploading' as const,
           progress: 0,
-          mediaType: item.mediaType
+          mediaType: item.mediaType,
+          fileSize: fileSize
         };
         this.history.push(historyItem);
         await this.saveHistory();

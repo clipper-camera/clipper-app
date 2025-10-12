@@ -36,6 +36,7 @@ interface UploadItem {
   mediaType: 'image' | 'video';
   status: 'pending' | 'uploading' | 'completed' | 'failed';
   progress?: number;
+  fileSize?: number;
 }
 
 interface ConfigurationSectionProps {
@@ -322,6 +323,12 @@ export default function SettingsScreen() {
     return '#666';
   };
 
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+  };
+
   const renderHistoryItem = ({ item }: { item: UploadItem }) => (
     <View style={[styles.uploadItem, { backgroundColor: themeColors[theme].background }]}>
       <View style={styles.uploadItemLeft}>
@@ -331,7 +338,10 @@ export default function SettingsScreen() {
           color={themeColors[theme].text} 
           style={styles.mediaIcon}
         />
-        <Text style={[styles.uploadText, { color: themeColors[theme].text }]}>{formatTimestamp(item.timestamp)}</Text>
+        <Text style={[styles.uploadText, { color: themeColors[theme].text }]}>
+          {formatTimestamp(item.timestamp)}
+          {item.fileSize && `, ${formatFileSize(item.fileSize)}`}
+        </Text>
       </View>
       <View style={styles.uploadItemRight}>
         {item.status === 'uploading' && item.progress !== undefined ? (

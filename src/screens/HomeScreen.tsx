@@ -225,19 +225,6 @@ export default function HomeScreen() {
     }
   };
 
-  const takePicture = async () => {
-    const photo = await ref.current?.takePictureAsync({
-       skipProcessing: false,
-       shutterSound: false,
-       quality: 0.6,
-    });
-    if (photo?.uri) {
-      const savedUri = await saveMediaToLocal(photo.uri);
-      if (savedUri) {
-        navigation.navigate('Preview', { mediaUri: savedUri, mediaType: 'image', canSend: true });
-      }
-    }
-  };
 
   const handleTouchStart = (event: any) => {
     console.log('Touch start triggered');
@@ -365,9 +352,7 @@ export default function HomeScreen() {
           const photo = await ref.current.takePictureAsync({
             skipProcessing: false,
             shutterSound: false,
-            quality: 1.0,
-            base64: false,
-            exif: false,
+            quality: 0.6,
             imageType: 'jpg',
           });
           
@@ -430,6 +415,8 @@ export default function HomeScreen() {
         autofocus="on"
         animateShutter={false}
         zoom={zoom}
+        videoQuality="720p"
+        videoBitrate={2500000}
         onCameraReady={handleCameraReady}
       />
 

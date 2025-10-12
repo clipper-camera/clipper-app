@@ -307,7 +307,7 @@ export default function PreviewScreen() {
         ) : (
           <Image
             source={{ uri: mediaUri }}
-            style={styles.media}
+            style={[styles.media]}
             contentFit="cover"
           />
         )}
