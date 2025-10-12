@@ -1,0 +1,46 @@
+name: Auto Sync Versions
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  sync-versions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Check if app.json was modified
+      id: check-app-json
+      run: |
+        if [ "${{ github.event_name }}" = "push" ] && ! git show --name-only HEAD | grep -q "app.json"; then
+          echo "app-json-changed=false" >> $GITHUB_OUTPUT
+          echo "⏭️ app.json not modified, skipping"
+        else
+          echo "app-json-changed=true" >> $GITHUB_OUTPUT
+          echo "🔄 app.json modified, syncing versions"
+        fi
+    
+    - name: Sync versions
+      if: steps.check-app-json.outputs.app-json-changed == 'true'
+      run: |
+        npm ci
+        npm run sync-version
+        
+        if [ -n "$(git status --porcelain)" ]; then
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "chore: auto-sync versions from app.json"
+          git push
+          echo "✅ Versions synced and committed"
+        else
+          echo "✅ All versions already in sync"
+        fi

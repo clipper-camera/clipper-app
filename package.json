@@ -1,13 +1,16 @@
 {
   "name": "clipper-app",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web"
+    "android": "npm run inject-version && expo run:android",
+    "ios": "npm run inject-version && expo run:ios",
+    "web": "expo start --web",
+    "sync-version": "node scripts/inject-version.js",
+    "inject-version": "node scripts/inject-version.js",
+    "prebuild": "npm run inject-version"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

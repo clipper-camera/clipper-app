@@ -26,6 +26,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
+    - name: Inject version from app.json
+      run: npm run inject-version
+    
     - name: Install EAS CLI
       run: npm install -g eas-cli
     
