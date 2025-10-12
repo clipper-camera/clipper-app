@@ -14,10 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "infoPlist": {
-        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos with text overlays.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to save photos with text overlays."
-      }
+      "infoPlist": {}
     },
     "android": {
       "adaptiveIcon": {
@@ -27,8 +24,6 @@
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],

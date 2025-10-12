@@ -50,7 +50,6 @@ function AppContent() {
     // Handle notification response (when user taps on notification)
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      
       if (data?.type === 'apk_install') {
         // Handle APK installation notification
         console.log('APK installation notification tapped:', data);
@@ -68,26 +67,26 @@ function AppContent() {
       }
     });
 
-    // Check for updates on app startup (but not too frequently)
-    const checkForUpdatesOnStartup = async () => {
-      try {
-        const shouldCheck = await updateService.shouldCheckForUpdates(24); // Check every 24 hours
-        if (shouldCheck) {
-          const updateInfo = await updateService.checkForUpdates();
-          if (updateInfo.hasUpdate) {
-            // Delay the notification slightly to let the app finish loading
-            setTimeout(() => {
-              updateService.showUpdateNotification(updateInfo);
-            }, 2000);
-          }
-          await updateService.setLastCheckTime();
-        }
-      } catch (error) {
-        console.error('Error checking for updates on startup:', error);
-        // Silently fail - don't show error to user on startup
-      }
-    };
-    checkForUpdatesOnStartup();
+    // // Check for updates on app startup (but not too frequently)
+    // const checkForUpdatesOnStartup = async () => {
+    //   try {
+    //     const shouldCheck = await updateService.shouldCheckForUpdates(24); // Check every 24 hours
+    //     if (shouldCheck) {
+    //       const updateInfo = await updateService.checkForUpdates();
+    //       if (updateInfo.hasUpdate) {
+    //         // Delay the notification slightly to let the app finish loading
+    //         setTimeout(() => {
+    //           updateService.showUpdateNotification(updateInfo);
+    //         }, 2000);
+    //       }
+    //       await updateService.setLastCheckTime();
+    //     }
+    //   } catch (error) {
+    //     console.error('Error checking for updates on startup:', error);
+    //     // Silently fail - don't show error to user on startup
+    //   }
+    // };
+    // checkForUpdatesOnStartup();
 
     return () => {
       subscription.remove();
