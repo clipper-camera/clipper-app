@@ -9,9 +9,11 @@ import { Picker } from '@react-native-picker/picker';
 import { settingsService } from '../services/settingsService';
 import { contactsService } from '../services/contactsService';
 import { serverHealthService } from '../services/serverHealthService';
+import { updateService } from '../services/updateService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import { useTheme, themeColors } from '../theme/ThemeContext';
+import Toast from 'react-native-toast-message';
 
 type RootStackParamList = {
   Settings: undefined;
@@ -145,10 +147,13 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [wifiOnlyEnabled, setWifiOnlyEnabled] = useState(true);
   const [showAdminZone, setShowAdminZone] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [currentAppVersion, setCurrentAppVersion] = useState('1.0.0');
 
   useEffect(() => {
     loadSettings();
     loadUploadHistory();
+    setCurrentAppVersion(updateService.getCurrentVersion());
 
     // Set up polling for upload progress and server status
     const pollInterval = setInterval(() => {
@@ -233,13 +238,15 @@ export default function SettingsScreen() {
         console.error('Error fetching contacts:', error);
       }
 
-      // Show success message
-      Alert.alert('Success', 'Settings saved successfully', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack()
-        }
-      ]);
+      // Show success toast and navigate to home
+      Toast.show({
+        type: 'success',
+        text1: 'Settings saved successfully',
+        position: 'bottom',
+      });
+      
+      // Navigate to Home screen
+      navigation.navigate('Home');
     } catch (error) {
       console.error('Error saving settings:', error);
       Alert.alert(
@@ -367,6 +374,35 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleCheckForUpdate = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      // Manual check should bypass ignored versions
+      const updateInfo = await updateService.checkForUpdates(true);
+      await updateService.setLastCheckTime();
+      
+      if (updateInfo.hasUpdate) {
+        await updateService.showUpdateNotification(updateInfo);
+      } else {
+        Alert.alert(
+          'No Updates',
+          `You're running the latest version (${updateInfo.currentVersion})`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      Alert.alert(
+        'Update Check Failed',
+        'Unable to check for updates. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors[theme].background }]}>
       <ScrollView style={styles.scrollView}>
@@ -467,6 +503,20 @@ export default function SettingsScreen() {
             >
               <Text style={[styles.saveButtonText, { color: themeColors[theme].text }]}>Save Settings</Text>
             </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.updateButton, { 
+                backgroundColor: themeColors[theme].secondary || themeColors[theme].primary,
+                opacity: isCheckingUpdate ? 0.6 : 1
+              }]} 
+              onPress={handleCheckForUpdate}
+              disabled={isCheckingUpdate}
+            >
+              <Text style={[styles.updateButtonText, { color: themeColors[theme].text }]}>
+                {isCheckingUpdate ? 'Checking...' : `Check for Update (v${currentAppVersion})`}
+              </Text>
+            </TouchableOpacity>
+            
           </View>
 
           <View style={styles.section}>
@@ -574,6 +624,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  updateButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  updateButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

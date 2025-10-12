@@ -6,7 +6,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
 import { captureRef } from 'react-native-view-shot';
 import { TextOverlay } from '../services/uploadService';
 import { mediaCacheService } from '../services/mediaCacheService';

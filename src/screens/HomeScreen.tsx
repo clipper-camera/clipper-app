@@ -5,7 +5,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { ImageBackground, Button, Pressable, StyleSheet, Text, View, Dimensions, SafeAreaView, TouchableOpacity, StatusBar, Alert, PanResponder } from "react-native";
+import { ImageBackground, Button, Pressable, StyleSheet, Text, View, Dimensions, SafeAreaView, TouchableOpacity, StatusBar, Alert, PanResponder, Linking } from "react-native";
 import { Image } from "expo-image";
 import { AntDesign } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
@@ -190,10 +190,34 @@ export default function HomeScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={{ textAlign: "center" }}>
-          We need your permission to use the camera
-        </Text>
-        <Button onPress={requestPermission} title="Grant permission" />
+        <View style={styles.permissionContainer}>
+          <FontAwesome6 name="camera" size={48} color="#666" style={styles.permissionIcon} />
+          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionText}>
+            Clipper needs camera access to take photos and videos. This permission is essential for the app to function.
+          </Text>
+          <TouchableOpacity 
+            style={styles.permissionButton} 
+            onPress={async () => {
+              console.log('Home screen: Requesting camera permission...');
+              const result = await requestPermission();
+              console.log('Home screen: Camera permission result:', result);
+              
+              if (!result.granted) {
+                Alert.alert(
+                  'Camera Permission Denied',
+                  'Camera permission is required for this app to work. Please enable it in your device settings.',
+                  [
+                    { text: 'Try Again', onPress: () => requestPermission() },
+                    { text: 'Open Settings', onPress: () => Linking.openSettings() }
+                  ]
+                );
+              }
+            }}
+          >
+            <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -629,5 +653,40 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    backgroundColor: '#000000',
+  },
+  permissionIcon: {
+    marginBottom: 20,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  permissionText: {
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  permissionButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

@@ -4,7 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 import { NavigationContainerRef } from '@react-navigation/native';
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
+import Toast from 'react-native-toast-message';
 import HomeScreen from './src/screens/HomeScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
 import PreviewScreen from './src/screens/PreviewScreen';
@@ -13,6 +14,7 @@ import ReceivedMessagesScreen from './src/screens/ReceivedMessagesScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import { TextOverlay } from './src/services/uploadService';
 import { ThemeProvider, useTheme, themeColors } from './src/theme/ThemeContext';
+import { updateService } from './src/services/updateService';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -47,10 +49,45 @@ function AppContent() {
     console.log('App component mounted');
     // Handle notification response (when user taps on notification)
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      if (navigationRef.current) {
-        navigationRef.current.navigate('ReceivedMessages');
+      const data = response.notification.request.content.data;
+      
+      if (data?.type === 'apk_install') {
+        // Handle APK installation notification
+        console.log('APK installation notification tapped:', data);
+        if (data.apkUri) {
+          // Launch APK installer with proper intent
+          Linking.openURL(data.apkUri).catch(error => {
+            console.error('Error launching APK installer:', error);
+          });
+        }
+      } else {
+        // Handle other notifications (like received messages)
+        if (navigationRef.current) {
+          navigationRef.current.navigate('ReceivedMessages');
+        }
       }
     });
+
+    // Check for updates on app startup (but not too frequently)
+    const checkForUpdatesOnStartup = async () => {
+      try {
+        const shouldCheck = await updateService.shouldCheckForUpdates(24); // Check every 24 hours
+        if (shouldCheck) {
+          const updateInfo = await updateService.checkForUpdates();
+          if (updateInfo.hasUpdate) {
+            // Delay the notification slightly to let the app finish loading
+            setTimeout(() => {
+              updateService.showUpdateNotification(updateInfo);
+            }, 2000);
+          }
+          await updateService.setLastCheckTime();
+        }
+      } catch (error) {
+        console.error('Error checking for updates on startup:', error);
+        // Silently fail - don't show error to user on startup
+      }
+    };
+    checkForUpdatesOnStartup();
 
     return () => {
       subscription.remove();
@@ -91,6 +128,7 @@ function AppContent() {
             <Stack.Screen name="ReceivedMessages" component={ReceivedMessagesScreen} />
           </Stack.Navigator>
         </NavigationContainer>
+        <Toast />
       </GestureHandlerRootView>
     );
   } catch (error) {
@@ -98,6 +136,7 @@ function AppContent() {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors[theme].background }}>
         <Text style={{ color: themeColors[theme].text }}>An error occurred. Please check the console.</Text>
+        <Toast />
       </View>
     );
   }
