@@ -20,24 +20,14 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
     
-    - name: Check if app.json was modified
-      id: check-app-json
+    - name: Sync versions
       run: |
         # Skip if this is an auto-sync commit to prevent infinite loops
         if git log -1 --pretty=%B | grep -q "chore: auto-sync versions from app.json"; then
-          echo "app-json-changed=false" >> $GITHUB_OUTPUT
           echo "⏭️ Auto-sync commit detected, skipping to prevent infinite loop"
-        elif [ "${{ github.event_name }}" = "push" ] && ! git show --name-only HEAD | grep -q "app.json"; then
-          echo "app-json-changed=false" >> $GITHUB_OUTPUT
-          echo "⏭️ app.json not modified, skipping"
-        else
-          echo "app-json-changed=true" >> $GITHUB_OUTPUT
-          echo "🔄 app.json modified, syncing versions"
+          exit 0
         fi
-    
-    - name: Sync versions
-      if: steps.check-app-json.outputs.app-json-changed == 'true'
-      run: |
+        
         npm ci
         npm run sync-version
         
