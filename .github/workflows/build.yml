@@ -93,7 +93,7 @@ jobs:
       run: |
         cd ios
         xcodebuild -list
-        xcodebuild -workspace Clipper.xcworkspace -scheme Clipper -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        xcodebuild -workspace Clipper.xcworkspace -scheme Clipper -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
     
     - name: Upload iOS Build
       uses: actions/upload-artifact@v4
