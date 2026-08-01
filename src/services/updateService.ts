@@ -1,7 +1,7 @@
-import { Platform, Alert, Linking, PermissionsAndroid } from 'react-native';
+import { Platform, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Notifications from 'expo-notifications';
 import Toast from 'react-native-toast-message';
 
@@ -9,6 +9,8 @@ const GITHUB_REPO = 'clipper-camera/clipper-app';
 const GITHUB_API_BASE = 'https://api.github.com';
 const LAST_CHECK_KEY = '@last_update_check';
 const IGNORED_VERSION_KEY = '@ignored_version';
+const PENDING_UPDATE_VERSION_KEY = '@pending_update_version';
+const UPDATE_CATEGORY = 'update_available';
 
 export interface GitHubRelease {
   tag_name: string;
@@ -37,7 +39,7 @@ class UpdateService {
   constructor() {
     // Version is automatically injected from app.json during build
     // Run 'npm run inject-version' to update this value
-    this.currentVersion = '1.1.13'; // Auto-injected from app.json
+    this.currentVersion = '1.1.15'; // Auto-injected from app.json
   }
 
   /**
@@ -101,6 +103,32 @@ class UpdateService {
     }
 
     return await response.json();
+  }
+
+  /**
+   * Test-only: fires the real update-available notification for whatever the
+   * latest GitHub release is, ignoring the version comparison and the
+   * ignored-version list. Lets you exercise download -> install-intent ->
+   * "Updated" notification on a real device without publishing a newer release.
+   */
+  async triggerTestUpdateFlow(): Promise<void> {
+    const releases = await this.fetchReleases();
+    const latestRelease = releases[0];
+    if (!latestRelease) {
+      throw new Error('No GitHub releases found');
+    }
+    const downloadUrl = this.getPlatformDownloadUrl(latestRelease);
+    if (!downloadUrl) {
+      throw new Error('No APK asset found on the latest release');
+    }
+    await this.promptUpdate({
+      hasUpdate: true,
+      latestVersion: latestRelease.tag_name,
+      currentVersion: this.currentVersion,
+      changelog: latestRelease.body,
+      downloadUrl,
+      releaseDate: latestRelease.published_at,
+    });
   }
 
   /**
@@ -174,13 +202,18 @@ class UpdateService {
       `${changelog}\n`,
       [
         { text: 'Later', style: 'cancel' },
-        { 
-          text: 'Ignore This Version', 
+        {
+          text: 'Ignore This Version',
           onPress: () => this.ignoreVersion(latestVersion)
         },
-        { 
-          text: 'Website', 
-          onPress: () => this.openGitHubReleases()
+        {
+          text: 'Update Now',
+          onPress: () => {
+            this.downloadAndInstall(downloadUrl, latestVersion).catch(error => {
+              console.error('Error downloading/installing update:', error);
+              Alert.alert('Update Failed', 'Could not download or install the update. Please try again.');
+            });
+          }
         }
       ]
     );
@@ -226,32 +259,104 @@ class UpdateService {
   }
 
   /**
-   * Show notification with APK installation intent
+   * Registers the notification action buttons (Update / Later) used by
+   * promptUpdate. Android only; call once on app startup.
    */
-  private async showAPKInstallNotification(apkUri: string, version: string): Promise<void> {
+  async registerNotificationCategory(): Promise<void> {
+    if (Platform.OS !== 'android') return;
     try {
-      console.log('Showing APK installation notification');
-      
-      // Schedule notification with APK installation intent
+      await Notifications.setNotificationCategoryAsync(UPDATE_CATEGORY, [
+        { identifier: 'update_now', buttonTitle: 'Update' },
+        { identifier: 'update_later', buttonTitle: 'Later' },
+      ]);
+    } catch (error) {
+      console.error('Error registering update notification category:', error);
+    }
+  }
+
+  /**
+   * Background-check entry point: fires a notification asking the user
+   * whether to update, instead of an in-app Alert. Tapping it (either the
+   * body or the "Update" action) is handled in App.tsx's notification
+   * response listener, which calls downloadAndInstall.
+   */
+  async promptUpdate(updateInfo: UpdateInfo): Promise<void> {
+    const { latestVersion, downloadUrl } = updateInfo;
+    if (Platform.OS !== 'android' || !downloadUrl) return;
+    try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Update Ready',
-          body: `Version ${version} is ready to install. Tap to install.`,
-          data: { 
-            apkUri: apkUri,
-            version: version,
-            type: 'apk_install'
-          },
-          categoryIdentifier: 'APK_INSTALL',
+          title: 'Update Available',
+          body: `Version ${latestVersion} is available. Tap to update.`,
+          data: { type: UPDATE_CATEGORY, downloadUrl, version: latestVersion },
+          categoryIdentifier: UPDATE_CATEGORY,
         },
-        trigger: null, // Show immediately
+        trigger: null,
       });
-      
-      // Show toast when notification is shown
-      this.showToast(`Version ${version} ready! Tap notification to install.`, 'success');
     } catch (error) {
-      console.error('Error showing APK notification:', error);
-      throw error;
+      console.error('Error showing update notification:', error);
+    }
+  }
+
+  /**
+   * Downloads the release APK and hands it to the system package installer.
+   * Android only — the installer takes over from here and shows its own
+   * confirmation screen; there is no way to make this silent without the
+   * app being a system/device-owner app.
+   */
+  async downloadAndInstall(downloadUrl: string, version: string, onProgress?: (progress: number) => void): Promise<void> {
+    if (Platform.OS !== 'android') return;
+    this.showToast(`Downloading version ${version}…`, 'info');
+
+    const destination = `${FileSystem.cacheDirectory}clipper-update-${version}.apk`;
+    const downloadResumable = FileSystem.createDownloadResumable(
+      downloadUrl,
+      destination,
+      {},
+      (progress) => onProgress?.(progress.totalBytesWritten / progress.totalBytesExpectedToWrite)
+    );
+
+    const result = await downloadResumable.downloadAsync();
+    if (!result?.uri) {
+      throw new Error('Download failed: no file written');
+    }
+
+    // ponytail: installing replaces this app's own process, so there's no JS
+    // callback for "install finished". Remember the target version and confirm
+    // it on the next launch instead (checkPendingUpdateCompleted). If the user
+    // cancels the installer, this is silently cleared rather than re-prompted —
+    // fine for now, revisit if that turns out to be confusing.
+    await AsyncStorage.setItem(PENDING_UPDATE_VERSION_KEY, version.replace(/^v/, ''));
+
+    const contentUri = await FileSystem.getContentUriAsync(result.uri);
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: contentUri,
+      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      type: 'application/vnd.android.package-archive',
+    });
+  }
+
+  /**
+   * Call on app startup. If the app just relaunched into the version an
+   * install was started for, the install succeeded — let the user know.
+   */
+  async checkPendingUpdateCompleted(): Promise<void> {
+    try {
+      const pendingVersion = await AsyncStorage.getItem(PENDING_UPDATE_VERSION_KEY);
+      if (!pendingVersion) return;
+      await AsyncStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+
+      if (pendingVersion === this.currentVersion) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Clipper Updated',
+            body: `You're now on version ${this.currentVersion}.`,
+          },
+          trigger: null,
+        });
+      }
+    } catch (error) {
+      console.error('Error checking pending update:', error);
     }
   }
 

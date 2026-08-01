@@ -148,6 +148,7 @@ export default function SettingsScreen() {
   const [wifiOnlyEnabled, setWifiOnlyEnabled] = useState(true);
   const [showAdminZone, setShowAdminZone] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isTestingUpdate, setIsTestingUpdate] = useState(false);
   const [currentAppVersion, setCurrentAppVersion] = useState('1.0.0');
 
   useEffect(() => {
@@ -402,6 +403,23 @@ export default function SettingsScreen() {
     }
   };
 
+  // ponytail: test-only affordance to exercise the download/install-intent
+  // flow against whatever the latest release actually is, without needing to
+  // publish a newer version first. Remove once the real flow is confirmed
+  // working on-device.
+  const handleTestUpdateFlow = async () => {
+    setIsTestingUpdate(true);
+    try {
+      await updateService.triggerTestUpdateFlow();
+      Alert.alert('Test Triggered', 'Check your notifications for the update prompt.');
+    } catch (error) {
+      console.error('Error triggering test update flow:', error);
+      Alert.alert('Test Failed', error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setIsTestingUpdate(false);
+    }
+  };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors[theme].background }]}>
@@ -516,7 +534,21 @@ export default function SettingsScreen() {
                 {isCheckingUpdate ? 'Checking...' : `Check for Update (v${currentAppVersion})`}
               </Text>
             </TouchableOpacity>
-            
+
+            <TouchableOpacity
+              style={[styles.updateButton, {
+                backgroundColor: themeColors[theme].secondary || themeColors[theme].primary,
+                opacity: isTestingUpdate ? 0.6 : 1,
+                marginTop: 8,
+              }]}
+              onPress={handleTestUpdateFlow}
+              disabled={isTestingUpdate}
+            >
+              <Text style={[styles.updateButtonText, { color: themeColors[theme].text }]}>
+                {isTestingUpdate ? 'Triggering…' : 'Test Update Flow (dev)'}
+              </Text>
+            </TouchableOpacity>
+
           </View>
 
           <View style={styles.section}>

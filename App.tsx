@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 import { NavigationContainerRef } from '@react-navigation/native';
-import { View, Text, Linking } from 'react-native';
+import { View, Text } from 'react-native';
 import Toast from 'react-native-toast-message';
 import HomeScreen from './src/screens/HomeScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -52,13 +52,11 @@ function AppContent() {
     // Handle notification response (when user taps on notification)
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      if (data?.type === 'apk_install') {
-        // Handle APK installation notification
-        console.log('APK installation notification tapped:', data);
-        if (data.apkUri) {
-          // Launch APK installer with proper intent
-          Linking.openURL(data.apkUri).catch(error => {
-            console.error('Error launching APK installer:', error);
+      if (data?.type === 'update_available') {
+        // Body tap or the "Update" action both mean yes; only "Later" means no
+        if (response.actionIdentifier !== 'update_later' && data.downloadUrl && data.version) {
+          updateService.downloadAndInstall(data.downloadUrl as string, data.version as string).catch(error => {
+            console.error('Error downloading/installing update:', error);
           });
         }
       } else if (data?.navigation === 'ChatThread' && data.userId && data.displayName) {
@@ -73,26 +71,26 @@ function AppContent() {
       }
     });
 
-    // // Check for updates on app startup (but not too frequently)
-    // const checkForUpdatesOnStartup = async () => {
-    //   try {
-    //     const shouldCheck = await updateService.shouldCheckForUpdates(24); // Check every 24 hours
-    //     if (shouldCheck) {
-    //       const updateInfo = await updateService.checkForUpdates();
-    //       if (updateInfo.hasUpdate) {
-    //         // Delay the notification slightly to let the app finish loading
-    //         setTimeout(() => {
-    //           updateService.showUpdateNotification(updateInfo);
-    //         }, 2000);
-    //       }
-    //       await updateService.setLastCheckTime();
-    //     }
-    //   } catch (error) {
-    //     console.error('Error checking for updates on startup:', error);
-    //     // Silently fail - don't show error to user on startup
-    //   }
-    // };
-    // checkForUpdatesOnStartup();
+    updateService.registerNotificationCategory();
+    updateService.checkPendingUpdateCompleted();
+
+    // Check for updates on app startup (but not too frequently)
+    const checkForUpdatesOnStartup = async () => {
+      try {
+        const shouldCheck = await updateService.shouldCheckForUpdates(24); // Check every 24 hours
+        if (shouldCheck) {
+          const updateInfo = await updateService.checkForUpdates();
+          if (updateInfo.hasUpdate) {
+            await updateService.promptUpdate(updateInfo);
+          }
+          await updateService.setLastCheckTime();
+        }
+      } catch (error) {
+        console.error('Error checking for updates on startup:', error);
+        // Silently fail - don't show error to user on startup
+      }
+    };
+    checkForUpdatesOnStartup();
 
     return () => {
       subscription.remove();

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Clipper",
     "slug": "clipper-app",
-    "version": "1.1.13",
+    "version": "1.1.15",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
       "infoPlist": {}
     },
     "android": {
-      "versionCode": 13,
+      "versionCode": 15,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#a4a4a4"
@@ -26,7 +26,8 @@
         "CAMERA",
         "RECORD_AUDIO",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "REQUEST_INSTALL_PACKAGES"
       ],
       "package": "com.clipper.clipperapp"
     },
