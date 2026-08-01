@@ -6,6 +6,7 @@ import {
 } from "expo-camera";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View, TouchableOpacity, Alert, Linking } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from "expo-image";
 import { AntDesign } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
@@ -29,6 +30,7 @@ type RootStackParamList = {
 };
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
 
 export default function HomeScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -444,77 +446,83 @@ export default function HomeScreen() {
         onCameraReady={handleCameraReady}
       />
 
-      {/* Settings and Notification buttons */}
-      <Pressable 
-        onPress={() => navigation.navigate('Settings')} 
-        style={styles.settingsButton}
-      >
-        <FontAwesome6 name="gear" size={24} color="white" />
-      </Pressable>
-      <Pressable 
-        style={styles.notificationButton}
-        onPress={() => navigation.navigate('ReceivedMessages')}
-      >
-        <FontAwesome6 name="user" size={24} color="white" />
-        {hasUnviewedMessages && <View style={styles.notificationDot} />}
-      </Pressable>
-
-      {/* Mode indicator and camera switch */}
-      <View style={styles.topControls}>
-        <View style={styles.modeIndicator}>
-          <View style={styles.modeContent}>
-            {userMode === "usermode_picture" ? (
-              <FontAwesome6 name="camera" size={14} color="white" style={styles.modeIcon} />
-            ) : (
-              <FontAwesome6 name="video" size={14} color="white" style={styles.modeIcon} />
-            )}
-            <Text style={styles.modeText}>
-              {userMode === "usermode_picture" ? "PHOTO" : "VIDEO"}
-            </Text>
-          </View>
-        </View>
-        <Pressable 
-          onPress={recording ? undefined : toggleFacing} 
-          style={[styles.cameraSwitchButton, recording && styles.disabledButton]}
+      {/* Camera draws full-bleed behind the status/nav bars; this pads its own
+          content to the safe area automatically instead of the buttons below
+          computing insets by hand. box-none lets touches pass through to the
+          camera anywhere that isn't an actual button. */}
+      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+        {/* Settings and Notification buttons */}
+        <Pressable
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.settingsButton}
         >
-          <FontAwesome6 name="camera-rotate" size={14} color="white" style={styles.cameraSwitchIcon} />
-          <Text style={[styles.cameraSwitchText, recording && styles.disabledText]}>
-            {facing === "back" ? "BACK" : "FRONT"}
-          </Text>
+          <FontAwesome6 name="gear" size={24} color="white" />
         </Pressable>
-      </View>
+        <Pressable
+          style={styles.notificationButton}
+          onPress={() => navigation.navigate('ReceivedMessages')}
+        >
+          <FontAwesome6 name="user" size={24} color="white" />
+          {hasUnviewedMessages && <View style={styles.notificationDot} />}
+        </Pressable>
 
-      {/* Shutter button and hold still text */}
-      <View style={styles.shutterContainer}>
-        <View style={styles.shutterContent}>
-          {isTakingPicture && (
-            <Text style={styles.holdStillText}>HOLD STILL</Text>
-          )}
-          <View
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+        {/* Mode indicator and camera switch */}
+        <View style={styles.topControls}>
+          <View style={styles.modeIndicator}>
+            <View style={styles.modeContent}>
+              {userMode === "usermode_picture" ? (
+                <FontAwesome6 name="camera" size={14} color="white" style={styles.modeIcon} />
+              ) : (
+                <FontAwesome6 name="video" size={14} color="white" style={styles.modeIcon} />
+              )}
+              <Text style={styles.modeText}>
+                {userMode === "usermode_picture" ? "PHOTO" : "VIDEO"}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={recording ? undefined : toggleFacing}
+            style={[styles.cameraSwitchButton, recording && styles.disabledButton]}
           >
+            <FontAwesome6 name="camera-rotate" size={14} color="white" style={styles.cameraSwitchIcon} />
+            <Text style={[styles.cameraSwitchText, recording && styles.disabledText]}>
+              {facing === "back" ? "BACK" : "FRONT"}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Shutter button and hold still text */}
+        <View style={styles.shutterContainer}>
+          <View style={styles.shutterContent}>
+            {isTakingPicture && (
+              <Text style={styles.holdStillText}>HOLD STILL</Text>
+            )}
             <View
-              style={[
-                styles.shutterBtn,
-                {
-                  opacity: isPressing ? 0.5 : 1,
-                },
-              ]}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
               <View
                 style={[
-                  styles.shutterBtnInner,
+                  styles.shutterBtn,
                   {
-                    backgroundColor: recording ? "red" : "white",
+                    opacity: isPressing ? 0.5 : 1,
                   },
                 ]}
-              />
+              >
+                <View
+                  style={[
+                    styles.shutterBtnInner,
+                    {
+                      backgroundColor: recording ? "red" : "white",
+                    },
+                  ]}
+                />
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -530,9 +538,12 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   settingsButton: {
     position: 'absolute',
-    top: 25,
+    top: 40,
     left: 20,
     width: 40,
     height: 40,
@@ -576,7 +587,7 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     position: 'absolute',
-    top: 75,
+    top: 90,
     left: 20,
     width: 40,
     height: 40,
@@ -596,7 +607,7 @@ const styles = StyleSheet.create({
   },
   topControls: {
     position: 'absolute',
-    top: 32,
+    top: 40,
     right: 20,
     alignItems: 'flex-end',
   },

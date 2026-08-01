@@ -2,7 +2,7 @@
   "expo": {
     "name": "Clipper",
     "slug": "clipper-app",
-    "version": "1.1.15",
+    "version": "1.1.22",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
       "infoPlist": {}
     },
     "android": {
-      "versionCode": 15,
+      "versionCode": 22,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#a4a4a4"

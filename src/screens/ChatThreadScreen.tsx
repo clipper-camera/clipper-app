@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView, TextInput, KeyboardAvoidingView, Platform, Keyboard, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { messageService, ReceivedMessage, SentMessage } from '../services/messageService';
 import { uploadService } from '../services/uploadService';
@@ -60,44 +61,29 @@ export default function ChatThreadScreen() {
   const itemsRef = useRef<ChatItem[]>([]);
   const [now, setNow] = useState(Date.now());
   const flatListRef = useRef<FlatList<ChatItem>>(null);
+  // Bumped after every send to remount the TextInput. A plain setDraftText('')
+  // can lose a race on some Android keyboards: typing fast and hitting send
+  // right as the IME commits composing text can deliver a stale onChangeText
+  // *after* our clear, silently repopulating the box. Remounting tears down
+  // the native EditText entirely so there's no stale buffer left to race.
+  const [inputKey, setInputKey] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const pendingScrollRef = useRef(false);
+
+  // The list is rendered inverted (newest item at array index 0, list flipped
+  // so index 0 sits at the bottom of the screen). That makes "the bottom" a
+  // fixed scroll offset of 0 regardless of content height or viewport size —
+  // no scrollToEnd()/onContentSizeChange timing races, no keyboard-resize
+  // reflow invalidating it. Sorting stays ascending everywhere else (year
+  // dividers etc.); only the FlatList's data is reversed.
+  const reversedItems = useMemo(() => [...items].reverse(), [items]);
 
   const scrollToBottom = useCallback((animated = true) => {
-    requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated }));
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
   }, []);
-
-  // requestAnimationFrame can fire before FlatList has actually laid out newly-set
-  // content (esp. the first empty->populated render), so scrollToEnd has nothing to
-  // scroll to yet. Defer until the list reports its content size actually changed.
-  const handleContentSizeChange = useCallback(() => {
-    if (pendingScrollRef.current) {
-      pendingScrollRef.current = false;
-      scrollToBottom(false);
-    }
-  }, [scrollToBottom]);
 
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
-    setIsAtBottom(distanceFromBottom < 80);
+    setIsAtBottom(e.nativeEvent.contentOffset.y < 80);
   }, []);
-
-  const isAtBottomRef = useRef(isAtBottom);
-  useEffect(() => {
-    isAtBottomRef.current = isAtBottom;
-  }, [isAtBottom]);
-
-  useEffect(() => {
-    // The keyboard shrinks the list (android:windowSoftInputMode="adjustResize"), which can
-    // push the latest messages out of view. Only re-anchor if the user was already at the
-    // bottom — if they scrolled up to reply to an older message, leave their position alone.
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(event, () => {
-      if (isAtBottomRef.current) scrollToBottom(true);
-    });
-    return () => sub.remove();
-  }, [scrollToBottom]);
 
   const refreshUploadStatus = useCallback((currentItems: ChatItem[]) => {
     const uploadIds = currentItems
@@ -148,12 +134,11 @@ export default function ChatThreadScreen() {
       setItems(merged);
       itemsRef.current = merged;
       refreshUploadStatus(merged);
-      // A background refresh must not yank the view away from someone reading
-      // back through the thread
-      if (showSpinner || isAtBottomRef.current) {
-        pendingScrollRef.current = true;
-        scrollToBottom(false);
-      }
+      // No explicit scroll needed: the list is inverted and rests at offset 0,
+      // which is always "the bottom" regardless of content height. A thread
+      // opens there by default, and new messages appear there for free as
+      // long as the reader hasn't scrolled away (native scroll offset doesn't
+      // shift on its own when content is added at the inverted start).
     } catch (error) {
       console.error('Error loading messages:', error);
       if (showSpinner) Alert.alert('Error', 'Failed to load messages. Please try again.');
@@ -174,6 +159,7 @@ export default function ChatThreadScreen() {
         return next;
       });
       setDraftText('');
+      setInputKey(k => k + 1);
       scrollToBottom(true);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -378,7 +364,8 @@ export default function ChatThreadScreen() {
               color={themeColors[theme].primary}
             />
             <Text style={[styles.bubbleLabel, { color: themeColors[theme].text }]}>
-              {message.mediaType === 'video' ? 'Video' : 'Photo'}{isExpired ? ' · Expired' : ''}
+              {message.mediaType === 'video' ? 'Video' : 'Photo'}
+              {downloadingMessageId === message.id ? ` · ${Math.round(downloadProgress * 100)}%` : isExpired ? ' · Expired' : ''}
             </Text>
             {!message.viewed && <View style={styles.unviewedDot} />}
             {downloadingMessageId === message.id && (
@@ -422,19 +409,17 @@ export default function ChatThreadScreen() {
         <View style={styles.listWrapper}>
           <FlatList
             ref={flatListRef}
-            data={items}
+            data={reversedItems}
+            inverted
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             onScroll={handleScroll}
             scrollEventThrottle={100}
-            onContentSizeChange={handleContentSizeChange}
-            // Default initialNumToRender (10) only paints the oldest messages on
-            // mount, so a thread with more than that gives scrollToEnd a content
-            // size that stops short of the true bottom. Render it all up front.
-            initialNumToRender={Math.max(items.length, 1)}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
+              // FlatList applies the inverted flip to ListEmptyComponent too,
+              // so counter-flip it back to right-side-up.
+              <View style={[styles.emptyContainer, { transform: [{ scaleY: -1 }] }]}>
                 <Text style={[styles.emptyText, { color: themeColors[theme].secondaryText }]}>
                   No messages with {displayName} yet
                 </Text>
@@ -453,6 +438,7 @@ export default function ChatThreadScreen() {
 
         <View style={[styles.inputBar, { borderTopColor: themeColors[theme].border, backgroundColor: themeColors[theme].background }]}>
           <TextInput
+            key={inputKey}
             style={[styles.textInput, { color: themeColors[theme].text, backgroundColor: themeColors[theme].card }]}
             value={draftText}
             onChangeText={setDraftText}
@@ -543,7 +529,7 @@ const styles = StyleSheet.create({
   },
   inputBar: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderTopWidth: StyleSheet.hairlineWidth,

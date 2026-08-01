@@ -5,6 +5,8 @@ import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 import { NavigationContainerRef } from '@react-navigation/native';
 import { View, Text } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import HomeScreen from './src/screens/HomeScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -100,7 +102,18 @@ function AppContent() {
   try {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavigationContainer 
+        {/* Single global status bar config — translucent/edge-to-edge everywhere,
+            for every screen, permanently. Toggling this per-screen based on
+            navigation focus proved unreliable (React Navigation's native-stack
+            keeps prior screens mounted, and the OS didn't always cleanly revert
+            the window's edge-to-edge state). Every screen except the camera
+            handles this by padding itself via SafeAreaView from
+            react-native-safe-area-context (NOT the React Native core one,
+            which is an Android no-op) instead of relying on the OS to reserve
+            space for it. The camera screen wants full-bleed anyway and
+            positions its own overlay buttons using safe-area insets. */}
+        <StatusBar translucent backgroundColor="transparent" style={theme === 'dark' ? 'light' : 'dark'} />
+        <NavigationContainer
           ref={navigationRef}
           onReady={() => console.log('Navigation container is ready')}
           onStateChange={(state) => console.log('Navigation state changed:', state)}
@@ -148,8 +161,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
