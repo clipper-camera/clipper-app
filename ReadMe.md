@@ -46,6 +46,30 @@ eas build --platform android
 eas build --platform ios # (untested...)
 ```
 
+### Building a local Android APK (no EAS)
+
+This builds a standalone release APK with the JS bundle and all assets baked in — no Metro server or internet connection needed to run it. Requires the [Android SDK](https://developer.android.com/studio) and Java installed locally.
+
+1. Bump the version in `app.json` (`expo.version` and `expo.android.versionCode`) — the app's own update checker and any reinstall over an existing copy both key off this.
+2. Sync the version and regenerate the native project:
+   ```bash
+   npm run inject-version
+   npx expo prebuild --platform android
+   ```
+3. Point Gradle at your Android SDK (one-time, not committed to git):
+   ```
+   # android/local.properties
+   sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
+   ```
+4. Build the release APK:
+   ```bash
+   cd android
+   ./gradlew.bat assembleRelease   # ./gradlew assembleRelease on macOS/Linux
+   ```
+   The APK lands at `android/app/build/outputs/apk/release/app-release.apk`.
+
+By default the release build is signed with the Gradle debug keystore (see `android/app/build.gradle`'s `signingConfigs.release`), which is fine for sideloading but not for a real Play Store release — swap in your own keystore before publishing anywhere public. Installing over an existing copy of the app requires it to have been signed with the same keystore, or you'll get an "app not installed" error and need to uninstall the old one first.
+
 
 ## Example Screenshots
 

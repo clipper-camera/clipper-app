@@ -11,6 +11,7 @@ import ContactsScreen from './src/screens/ContactsScreen';
 import PreviewScreen from './src/screens/PreviewScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ReceivedMessagesScreen from './src/screens/ReceivedMessagesScreen';
+import ChatThreadScreen from './src/screens/ChatThreadScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import { TextOverlay } from './src/services/uploadService';
 import { ThemeProvider, useTheme, themeColors } from './src/theme/ThemeContext';
@@ -28,6 +29,7 @@ export type RootStackParamList = {
     textOverlays?: TextOverlay[];
   };
   ReceivedMessages: undefined;
+  ChatThread: { userId: string; displayName: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -59,11 +61,15 @@ function AppContent() {
             console.error('Error launching APK installer:', error);
           });
         }
+      } else if (data?.navigation === 'ChatThread' && data.userId && data.displayName) {
+        // Deep-link straight into the conversation the message came from
+        navigationRef.current?.navigate('ChatThread', {
+          userId: data.userId as string,
+          displayName: data.displayName as string,
+        });
       } else {
-        // Handle other notifications (like received messages)
-        if (navigationRef.current) {
-          navigationRef.current.navigate('ReceivedMessages');
-        }
+        // Fallback: open the conversation list
+        navigationRef.current?.navigate('ReceivedMessages');
       }
     });
 
@@ -125,6 +131,7 @@ function AppContent() {
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Preview" component={PreviewScreen} />
             <Stack.Screen name="ReceivedMessages" component={ReceivedMessagesScreen} />
+            <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <Toast />

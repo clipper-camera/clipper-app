@@ -37,7 +37,7 @@ class UpdateService {
   constructor() {
     // Version is automatically injected from app.json during build
     // Run 'npm run inject-version' to update this value
-    this.currentVersion = '1.1.1'; // Auto-injected from app.json
+    this.currentVersion = '1.1.13'; // Auto-injected from app.json
   }
 
   /**

@@ -3,6 +3,7 @@ import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { settingsService, Settings } from './settingsService';
 import { serverHealthService } from './serverHealthService';
+import { messageService } from './messageService';
 
 export interface TextOverlay {
   id: string;
@@ -64,19 +65,29 @@ class UploadService {
   }
 
   async addToQueue(mediaUri: string, mediaType: 'image' | 'video', recipientIds: string[] = [], textOverlays: TextOverlay[] = []): Promise<void> {
+    // Captured once, before upload: this is what's sent to the server as the
+    // item's timestamp, and reused below so the local sent-echo matches it
+    // exactly (rather than drifting from a second, later Date.now() read).
+    const timestamp = Date.now();
     const item: UploadQueueItem = {
-      id: Date.now().toString(),
+      id: timestamp.toString(),
       mediaUri,
       mediaType,
       recipientIds,
-      timestamp: Date.now(),
+      timestamp,
       status: 'pending',
       textOverlays
     };
 
     this.queue.push(item);
     await this.saveQueue();
-    
+
+    // Local echo so the sender sees a sent bubble in each recipient's chat thread
+    // right away, independent of upload/server success.
+    for (const recipientId of recipientIds) {
+      await messageService.recordSentMedia(recipientId, mediaType, timestamp, item.id);
+    }
+
     // Process immediately for new uploads
     this.lastProcessTime = 0;
     this.processQueue();
@@ -284,7 +295,13 @@ class UploadService {
             try {
               const result = JSON.parse(xhr.responseText);
               console.log('Upload successful:', result);
-              
+
+              // Ties the sent bubbles to the server's id so their delivery
+              // receipts can be matched when the recipient downloads
+              if (result.messageId) {
+                await messageService.recordServerMessageId(item.id, result.messageId);
+              }
+
               // Update history item to completed
               const historyIndex = this.history.findIndex(h => h.id === item.id);
               if (historyIndex !== -1) {
@@ -418,6 +435,16 @@ class UploadService {
 
   async getPendingUploads(): Promise<UploadQueueItem[]> {
     return this.queue.filter(item => item.status === 'pending');
+  }
+
+  // Sync lookup (queue/history are already in memory) for a single upload's
+  // live status, keyed by the id shared with SentMessage.uploadId.
+  getStatus(id: string): { status: UploadQueueItem['status']; progress?: number } | null {
+    const historyItem = this.history.find(h => h.id === id);
+    if (historyItem) return { status: historyItem.status, progress: historyItem.progress };
+    const queueItem = this.queue.find(q => q.id === id);
+    if (queueItem) return { status: queueItem.status };
+    return null;
   }
 
   getCurrentUploadProgress(): number {

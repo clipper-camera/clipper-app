@@ -1,67 +1,62 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl, SafeAreaView } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { messageService, ReceivedMessage } from '../services/messageService';
-import * as FileSystem from 'expo-file-system';
-import { Swipeable } from 'react-native-gesture-handler';
+import { contactsService, Contact } from '../services/contactsService';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { settingsService } from '../services/settingsService';
-import { format, formatDistanceToNow } from 'date-fns';
-import { mediaCacheService } from '../services/mediaCacheService';
+import { formatDistanceToNow } from 'date-fns';
 import { useTheme, themeColors } from '../theme/ThemeContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
   ReceivedMessages: undefined;
+  ChatThread: { userId: string; displayName: string };
   Home: undefined;
-  Preview: { 
-    mediaUri: string; 
-    mediaType: 'image' | 'video'; 
-    canSend: boolean;
-    textOverlays?: TextOverlay[];
-  };
 };
 
 type ReceivedMessagesScreenProps = NativeStackScreenProps<RootStackParamList, 'ReceivedMessages'>;
 
-interface TextOverlay {
-  id: string;
-  text: string;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  rotation: number;
-  scale: number;
-  color: string;
-  fontSize: number;
-  fontFamily: string;
+interface Conversation {
+  userId: string;
+  displayName: string;
+  lastMessage?: ReceivedMessage;
+  unreadCount: number;
 }
 
 export default function ReceivedMessagesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<ReceivedMessagesScreenProps['navigation']>();
-  const [messages, setMessages] = useState<ReceivedMessage[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const swipeableRefs = useRef<{ [key: string]: Swipeable | null }>({});
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadingMessageId, setDownloadingMessageId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadMessages();
-  }, []);
-
-  const loadMessages = async () => {
+  const loadConversations = async () => {
     try {
       setIsLoading(true);
-      // First check for new messages
       await messageService.checkForNewMessages();
-      // Then get all messages
-      const allMessages = await messageService.getMessages();
-      setMessages(allMessages);
+      const [contacts, messages] = await Promise.all([
+        contactsService.getContacts(),
+        messageService.getMessages(), // newest first
+      ]);
+
+      const byContact = new Map<string, Conversation>();
+      for (const c of contacts) {
+        byContact.set(c.id, { userId: c.id, displayName: c.display_name, unreadCount: 0 });
+      }
+      for (const m of messages) {
+        const entry = byContact.get(m.userId) ?? { userId: m.userId, displayName: m.displayName, unreadCount: 0 };
+        if (!entry.lastMessage) entry.lastMessage = m; // messages sorted newest-first
+        if (!m.viewed) entry.unreadCount += 1;
+        byContact.set(m.userId, entry);
+      }
+
+      const sorted = Array.from(byContact.values()).sort(
+        (a, b) => (b.lastMessage?.timestamp ?? 0) - (a.lastMessage?.timestamp ?? 0)
+      );
+      setConversations(sorted);
     } catch (error) {
-      console.error('Error loading messages:', error);
-      Alert.alert('Error', 'Failed to load messages. Please try again.');
+      console.error('Error loading conversations:', error);
+      Alert.alert('Error', 'Failed to load conversations. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -70,206 +65,85 @@ export default function ReceivedMessagesScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadMessages();
+      await loadConversations();
     } finally {
       setRefreshing(false);
     }
   }, []);
 
-  // Load messages when screen is focused
   useFocusEffect(
     useCallback(() => {
-      loadMessages();
+      loadConversations();
     }, [])
   );
 
-  const handleMarkAsViewed = async (messageId: string) => {
-    try {
-      await messageService.markAsViewed(messageId);
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.id === messageId ? { ...msg, viewed: true } : msg
-        )
-      );
-    } catch (error) {
-      console.error('Error marking message as viewed:', error);
-      Alert.alert('Error', 'Failed to mark message as viewed.');
-    }
+  const renderPreview = (item: Conversation) => {
+    if (!item.lastMessage) return 'No messages yet';
+    if (item.lastMessage.mediaType === 'text') return item.lastMessage.text ?? '';
+    const icon = item.lastMessage.mediaType === 'video' ? '🎥' : '📷';
+    return `${icon} ${item.lastMessage.mediaType === 'video' ? 'Video' : 'Photo'}`;
   };
 
-  const handleDelete = async (messageId: string) => {
-    try {
-      // Mark the message as viewed before deleting
-      await messageService.markAsViewed(messageId);
-      
-      // Now delete the message
-      await messageService.deleteMessage(messageId);
-      
-      // Update the state to remove the message from the list
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      Alert.alert('Error', 'Failed to delete message.');
-    }
-  };
-
-  const renderRightActions = (messageId: string) => {
-    return (
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => {
-          swipeableRefs.current[messageId]?.close();
-          handleDelete(messageId);
-        }}
-      >
-        <FontAwesome6 name="trash" size={24} color="white" />
-      </TouchableOpacity>
-    );
-  };
-  
-  const downloadMediaToLocal = async (mediaUri: string, mediaType: 'image' | 'video') => {
-    try {
-      const settings = await settingsService.getSettings();
-      const fullMediaUrl = `${settings.apiEndpoint}${mediaUri}`;
-      
-      // Check if we have a cached version first
-      const cache = mediaCacheService.getCache();
-      const cachedEntry = Object.values(cache).find(entry => 
-        entry.uri.includes(mediaUri.split('/').pop()!)
-      );
-
-      if (cachedEntry) {
-        const fileInfo = await FileSystem.getInfoAsync(cachedEntry.uri);
-        if (fileInfo.exists) {
-          return cachedEntry.uri;
-        }
-      }
-
-      // If no valid cache, download with progress tracking
-      const cacheKey = mediaCacheService.getCacheKey(fullMediaUrl);
-      const destination = `${mediaCacheService.getCacheDir()}${cacheKey}`;
-
-      const downloadResumable = FileSystem.createDownloadResumable(
-        fullMediaUrl,
-        destination,
-        {},
-        (downloadProgress) => {
-          const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-          setDownloadProgress(progress);
-        }
-      );
-
-      const result = await downloadResumable.downloadAsync();
-      if (result?.uri) {
-        mediaCacheService.addToCache(cacheKey, result.uri);
-        return result.uri;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error downloading media:', error);
-      return null;
-    }
-  };
-
-  const renderMessage = ({ item }: { item: ReceivedMessage }) => (
-    <Swipeable
-      ref={ref => swipeableRefs.current[item.id] = ref}
-      renderRightActions={() => renderRightActions(item.id)}
-      rightThreshold={40}
+  const renderConversation = ({ item }: { item: Conversation }) => (
+    <TouchableOpacity
+      style={[
+        styles.row,
+        { borderColor: themeColors[theme].border },
+      ]}
+      onPress={() => navigation.navigate('ChatThread', { userId: item.userId, displayName: item.displayName })}
     >
-      <TouchableOpacity 
-        style={[
-          styles.messageItem,
-          { 
-            backgroundColor: themeColors[theme].background,
-            borderColor: themeColors[theme].border,
-          }
-        ]}
-        disabled={isDownloading}
-        onPress={async () => {
-          if (isDownloading) return;
-          setIsDownloading(true);
-          setDownloadProgress(0);
-          setDownloadingMessageId(item.id);
-          try {
-            handleMarkAsViewed(item.id);
-            const savedUri = await downloadMediaToLocal(item.mediaUrl, item.mediaType);
-            if (savedUri) {
-              navigation.navigate('Preview', { 
-                mediaUri: savedUri, 
-                mediaType: item.mediaType, 
-                canSend: false,
-                textOverlays: item.textOverlays 
-              });
-            }
-          } finally {
-            setIsDownloading(false);
-            setDownloadProgress(0);
-            setDownloadingMessageId(null);
-          }
-        }}>
-        <View style={styles.messageContent}>
-          <Text style={[styles.senderText, { color: theme === 'dark' ? 'white' : themeColors[theme].text }]}>From: {item.displayName}</Text>
-          <Text style={[styles.timestamp, { color: theme === 'dark' ? 'white' : themeColors[theme].secondaryText }]}>
-            {format(new Date(item.timestamp), 'MMM d, yyyy h:mm a')}
-            {' • '}
-            {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+      <View style={styles.rowContent}>
+        <Text style={[styles.name, { color: themeColors[theme].text }]}>{item.displayName}</Text>
+        <Text style={[styles.preview, { color: themeColors[theme].secondaryText }]} numberOfLines={1}>
+          {renderPreview(item)}
+        </Text>
+      </View>
+      <View style={styles.rowRight}>
+        {item.lastMessage && (
+          <Text style={[styles.timestamp, { color: themeColors[theme].secondaryText }]}>
+            {formatDistanceToNow(new Date(item.lastMessage.timestamp), { addSuffix: true })}
           </Text>
-        </View>
-        {!item.viewed && (
-          <View style={styles.unviewedIndicator} />
         )}
-        {downloadingMessageId === item.id && (
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill,
-                { width: `${downloadProgress * 100}%` }
-              ]} 
-            />
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
           </View>
         )}
-      </TouchableOpacity>
-    </Swipeable>
+      </View>
+    </TouchableOpacity>
   );
 
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: themeColors[theme].background }]}>
-        <Text style={[styles.loadingText, { color: themeColors[theme].text }]}>Loading messages...</Text>
+        <Text style={[styles.loadingText, { color: themeColors[theme].text }]}>Loading...</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors[theme].background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <FontAwesome6 name="arrow-left" size={24} color={themeColors[theme].text} />
+      <View style={[styles.header, { borderBottomColor: themeColors[theme].border }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <FontAwesome6 name="arrow-left" size={22} color={themeColors[theme].text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: themeColors[theme].text }]}>Received Messages</Text>
+        <Text style={[styles.title, { color: themeColors[theme].text }]}>Messages</Text>
         <View style={styles.headerRight} />
       </View>
 
       <FlatList
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        data={conversations}
+        renderItem={renderConversation}
+        keyExtractor={(item) => item.userId}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="white"
-            titleColor="white"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors[theme].text} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: themeColors[theme].secondaryText }]}>No messages received yet</Text>
+            <Text style={[styles.emptyText, { color: themeColors[theme].secondaryText }]}>
+              No contacts yet. Add contacts to start chatting.
+            </Text>
           </View>
         }
       />
@@ -285,15 +159,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     padding: 8,
+    width: 40,
   },
   headerRight: {
-    width: 40, // Same width as backButton for balance
+    width: 40,
   },
   title: {
     fontSize: 24,
@@ -302,54 +177,46 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
   },
-  messageItem: {
+  row: {
     flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
-    borderRadius: 0,
-    borderWidth: 1,
-    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  messageContent: {
+  rowContent: {
     flex: 1,
   },
-  senderText: {
+  name: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 4,
   },
-  timestamp: {
+  preview: {
     fontSize: 14,
   },
-  unviewedIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'red',
+  rowRight: {
+    alignItems: 'flex-end',
   },
-  deleteButton: {
+  timestamp: {
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#ff3b30',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    height: '100%',
+    paddingHorizontal: 5,
   },
-  progressBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    width: '100%',
-  },
-  progressFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 122, 255, 0.4)',
+  unreadBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
   loadingText: {
-    fontSize: 40,
+    fontSize: 20,
     marginTop: 100,
     textAlign: 'center',
   },
@@ -363,4 +230,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-}); 
+});

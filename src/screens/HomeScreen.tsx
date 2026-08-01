@@ -455,7 +455,7 @@ export default function HomeScreen() {
         style={styles.notificationButton}
         onPress={() => navigation.navigate('ReceivedMessages')}
       >
-        <FontAwesome6 name="bell" size={24} color="white" />
+        <FontAwesome6 name="user" size={24} color="white" />
         {hasUnviewedMessages && <View style={styles.notificationDot} />}
       </Pressable>
 
