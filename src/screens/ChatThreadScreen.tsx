@@ -22,6 +22,7 @@ const VIDEO_EXPIRY_MS = 10 * 60 * 1000;
 
 type RootStackParamList = {
   ChatThread: { userId: string; displayName: string };
+  Home: { recipientId?: string; recipientName?: string } | undefined;
   Preview: {
     mediaUri: string;
     mediaType: 'image' | 'video';
@@ -437,6 +438,12 @@ export default function ChatThreadScreen() {
         </View>
 
         <View style={[styles.inputBar, { borderTopColor: themeColors[theme].border, backgroundColor: themeColors[theme].background }]}>
+          <TouchableOpacity
+            style={[styles.cameraButton, { backgroundColor: themeColors[theme].card }]}
+            onPress={() => navigation.push('Home', { recipientId: userId, recipientName: displayName })}
+          >
+            <FontAwesome6 name="camera" size={18} color={themeColors[theme].primary} style={styles.inputIcon} />
+          </TouchableOpacity>
           <TextInput
             key={inputKey}
             style={[styles.textInput, { color: themeColors[theme].text, backgroundColor: themeColors[theme].card }]}
@@ -451,7 +458,7 @@ export default function ChatThreadScreen() {
             onPress={handleSend}
             disabled={!draftText.trim() || isSending}
           >
-            <FontAwesome6 name="paper-plane" size={18} color="white" />
+            <FontAwesome6 name="paper-plane" size={17} color="white" style={styles.sendIcon} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -530,25 +537,45 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   textInput: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 19,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
+    paddingVertical: 9,
+    marginHorizontal: 8,
+    minHeight: 38,
     maxHeight: 100,
     fontSize: 15.5,
   },
-  sendButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  cameraButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sendButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Icon fonts carry extra ascender/descender space that Android reserves as
+  // font padding, which pushes the glyph off-centre inside a round button.
+  inputIcon: {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  sendIcon: {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    // paper-plane's visual mass sits left of its glyph box centre
+    marginLeft: 2,
   },
   bubble: {
     flexDirection: 'row',

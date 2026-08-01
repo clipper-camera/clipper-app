@@ -13,7 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { Video, ResizeMode } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { messageService } from '../services/messageService';
 import { TextOverlay, uploadService } from '../services/uploadService';
@@ -22,8 +22,17 @@ import { ReceivedMessage } from '../services/messageService';
 import { serverHealthService } from '../services/serverHealthService';
 
 type RootStackParamList = {
-  Home: undefined;
-  Preview: { mediaUri: string; mediaType: 'image' | 'video', canSend: boolean, textOverlays?: TextOverlay[] };
+  // recipient* is set when this screen is pushed from a chat thread, so the
+  // capture goes straight to that person instead of via the contact picker.
+  Home: { recipientId?: string; recipientName?: string } | undefined;
+  Preview: {
+    mediaUri: string;
+    mediaType: 'image' | 'video';
+    canSend: boolean;
+    textOverlays?: TextOverlay[];
+    recipientId?: string;
+    recipientName?: string;
+  };
   Contacts: { mediaUri: string; mediaType: 'image' | 'video',  textOverlays?: TextOverlay[] };
   Settings: undefined;
   ReceivedMessages: undefined;
@@ -44,6 +53,9 @@ export default function HomeScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const takePicturePromiseRef = useRef<((value: void) => void) | null>(null);
   const navigation = useNavigation<HomeScreenProps['navigation']>();
+  const route = useRoute<HomeScreenProps['route']>();
+  const recipientId = route.params?.recipientId;
+  const recipientName = route.params?.recipientName;
   const [hasUnviewedMessages, setHasUnviewedMessages] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
   const [initialY, setInitialY] = useState(0);
@@ -289,7 +301,7 @@ export default function HomeScreen() {
         if (result?.uri) {
           const savedUri = await saveMediaToLocal(result.uri);
           if (savedUri) {
-            navigation.navigate('Preview', { mediaUri: savedUri, mediaType: 'video', canSend: true });
+            navigation.navigate('Preview', { mediaUri: savedUri, mediaType: 'video', canSend: true, recipientId, recipientName });
             setUserMode("usermode_picture");
             setZoom(0);
           }
@@ -389,7 +401,7 @@ export default function HomeScreen() {
             console.log('Picture saved to:', savedUri);
             if (savedUri) {
               console.log('Navigating to preview screen with image...');
-              navigation.navigate('Preview', { mediaUri: savedUri, mediaType: 'image', canSend: true });
+              navigation.navigate('Preview', { mediaUri: savedUri, mediaType: 'image', canSend: true, recipientId, recipientName });
             }
           } else {
             console.log('DEBUG: No photo URI received, switching back to picture mode');
@@ -451,20 +463,36 @@ export default function HomeScreen() {
           computing insets by hand. box-none lets touches pass through to the
           camera anywhere that isn't an actual button. */}
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
-        {/* Settings and Notification buttons */}
-        <Pressable
-          onPress={() => navigation.navigate('Settings')}
-          style={styles.settingsButton}
-        >
-          <FontAwesome6 name="gear" size={24} color="white" />
-        </Pressable>
-        <Pressable
-          style={styles.notificationButton}
-          onPress={() => navigation.navigate('ReceivedMessages')}
-        >
-          <FontAwesome6 name="user" size={24} color="white" />
-          {hasUnviewedMessages && <View style={styles.notificationDot} />}
-        </Pressable>
+        {recipientId ? (
+          // Pushed from a chat thread: offer a way back to it, and make the
+          // fixed destination obvious. Settings/inbox nav would only tangle
+          // the stack from here, so it's hidden in this mode.
+          <>
+            <Pressable onPress={() => navigation.goBack()} style={styles.settingsButton}>
+              <FontAwesome6 name="arrow-left" size={24} color="white" />
+            </Pressable>
+            <View style={styles.recipientBadge}>
+              <Text style={styles.recipientBadgeText}>To: {recipientName}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Settings and Notification buttons */}
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              style={styles.settingsButton}
+            >
+              <FontAwesome6 name="gear" size={24} color="white" />
+            </Pressable>
+            <Pressable
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('ReceivedMessages')}
+            >
+              <FontAwesome6 name="user" size={24} color="white" />
+              {hasUnviewedMessages && <View style={styles.notificationDot} />}
+            </Pressable>
+          </>
+        )}
 
         {/* Mode indicator and camera switch */}
         <View style={styles.topControls}>
@@ -604,6 +632,20 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 6,
     backgroundColor: '#ff3b30',
+  },
+  recipientBadge: {
+    position: 'absolute',
+    top: 42,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  recipientBadgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   topControls: {
     position: 'absolute',

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, TextInput, PanResponder, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, TextInput, PanResponder, Animated, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,17 +7,19 @@ import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import * as FileSystem from 'expo-file-system';
 import { captureRef } from 'react-native-view-shot';
-import { TextOverlay } from '../services/uploadService';
+import { TextOverlay, uploadService } from '../services/uploadService';
 import { mediaCacheService } from '../services/mediaCacheService';
 import { settingsService } from '../services/settingsService';
 
 type RootStackParamList = {
   Home: undefined;
-  Preview: { 
-    mediaUri: string; 
-    mediaType: 'image' | 'video'; 
+  Preview: {
+    mediaUri: string;
+    mediaType: 'image' | 'video';
     canSend: boolean;
     textOverlays?: TextOverlay[];
+    recipientId?: string;
+    recipientName?: string;
   };
   Contacts: { mediaUri: string; mediaType: 'image' | 'video', textOverlays?: TextOverlay[] };
 };
@@ -38,6 +40,9 @@ export default function PreviewScreen() {
   const [mediaType, setMediaType] = useState<'image' | 'video'>(route.params?.mediaType || 'image');
   const [canSend, setCanSend] = useState<boolean>(route.params?.canSend || false);
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>(route.params?.textOverlays || []);
+  const recipientId = route.params?.recipientId;
+  const recipientName = route.params?.recipientName;
+  const [isSending, setIsSending] = useState(false);
   const [isAddingText, setIsAddingText] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
@@ -59,9 +64,27 @@ export default function PreviewScreen() {
     navigation.pop();
   };
 
-  const handleProceed = () => {
-    navigation.navigate('Contacts', { 
-      mediaUri, 
+  const handleProceed = async () => {
+    // Opened from a chat thread: the recipient is already known, so queue the
+    // upload straight to them instead of routing through the contact picker.
+    if (recipientId) {
+      if (isSending) return;
+      setIsSending(true);
+      try {
+        await uploadService.addToQueue(mediaUri, mediaType, [recipientId], textOverlays);
+        // Drop this preview and the camera screen that was pushed on top of
+        // the thread, landing back on the conversation itself.
+        navigation.pop(2);
+      } catch (error) {
+        console.error('Error queueing upload:', error);
+        Alert.alert('Error', 'Failed to queue upload. Please try again.');
+        setIsSending(false);
+      }
+      return;
+    }
+
+    navigation.navigate('Contacts', {
+      mediaUri,
       mediaType,
       textOverlays: textOverlays.length > 0 ? textOverlays : undefined
     });
@@ -374,6 +397,12 @@ export default function PreviewScreen() {
         </Pressable>
       )}
 
+      {canSend && recipientName && (
+        <View style={styles.recipientBadge}>
+          <Text style={styles.recipientBadgeText}>To: {recipientName}</Text>
+        </View>
+      )}
+
       <View style={styles.buttonContainer}>
         {canSend && (
           <>
@@ -383,8 +412,8 @@ export default function PreviewScreen() {
             <Pressable onPress={handleAddText} style={styles.button}>
               <FontAwesome6 name="font" size={32} color="white" />
             </Pressable>
-            <Pressable onPress={handleProceed} style={styles.button}>
-              <FontAwesome6 name="paper-plane" size={32} color="white" />
+            <Pressable onPress={handleProceed} style={styles.button} disabled={isSending}>
+              <FontAwesome6 name="paper-plane" size={32} color={isSending ? '#888' : 'white'} />
             </Pressable>
           </>
         )}
@@ -407,6 +436,20 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  recipientBadge: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  recipientBadgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttonContainer: {
     position: 'absolute',

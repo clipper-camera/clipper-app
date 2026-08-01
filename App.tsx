@@ -21,14 +21,18 @@ import { updateService } from './src/services/updateService';
 
 export type RootStackParamList = {
   Welcome: undefined;
-  Home: undefined;
+  // recipient* is set when the camera is opened from a chat thread: the
+  // recipient is already known, so the contact picker is skipped on send.
+  Home: { recipientId?: string; recipientName?: string } | undefined;
   Contacts: undefined;
   Settings: undefined;
-  Preview: { 
-    mediaUri: string; 
-    mediaType: 'image' | 'video'; 
+  Preview: {
+    mediaUri: string;
+    mediaType: 'image' | 'video';
     canSend: boolean;
     textOverlays?: TextOverlay[];
+    recipientId?: string;
+    recipientName?: string;
   };
   ReceivedMessages: undefined;
   ChatThread: { userId: string; displayName: string };
