@@ -83,13 +83,13 @@ jobs:
       run: npx expo prebuild -p ios
 
     # fmt's consteval code doesn't compile on the latest Xcode; building just
-    # that pod as C++17 turns it off
+    # that pod as C++17 turns it off. Must come after react_native_post_install,
+    # which forces every pod to C++20
     - name: Build fmt pod as C++17
       run: |
-        sed -i '' "/post_install do |installer|/a\\
-        installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17' } if t.name == 'fmt' }
-        " ios/Podfile
-        grep -n -A1 "post_install do" ios/Podfile
+        perl -0pi -e "s/(react_native_post_install\(.*?\n\s*\)\n)/\$1    installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17' } if t.name == 'fmt' }\n/s" ios/Podfile
+        grep -q "c++17" ios/Podfile
+        grep -n -A12 "post_install do" ios/Podfile
 
     - name: List iOS directory contents
       run: ls -la ios/
