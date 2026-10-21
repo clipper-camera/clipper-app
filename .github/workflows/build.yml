@@ -39,6 +39,8 @@ jobs:
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        packages: 'platform-tools'
     
     - name: Setup Android environment variables
       run: |
@@ -79,7 +81,16 @@ jobs:
     
     - name: Generate iOS project
       run: npx expo prebuild -p ios
-    
+
+    # fmt's consteval code doesn't compile on the latest Xcode; building just
+    # that pod as C++17 turns it off
+    - name: Build fmt pod as C++17
+      run: |
+        sed -i '' "/post_install do |installer|/a\\
+        installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17' } if t.name == 'fmt' }
+        " ios/Podfile
+        grep -n -A1 "post_install do" ios/Podfile
+
     - name: List iOS directory contents
       run: ls -la ios/
     

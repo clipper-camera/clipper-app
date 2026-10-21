@@ -43,3 +43,5 @@ credentials/
 credentials.json
 keystores/
 
+
+.aria_uploads/
