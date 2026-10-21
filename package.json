@@ -1,7 +1,7 @@
 {
   "name": "clipper-app",
   "license": "MIT",
-  "version": "1.1.23",
+  "version": "1.2.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

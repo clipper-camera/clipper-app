@@ -20,6 +20,9 @@ type ChatItem =
 
 const VIDEO_EXPIRY_MS = 10 * 60 * 1000;
 
+const formatSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
 type RootStackParamList = {
   ChatThread: { userId: string; displayName: string };
   Home: { recipientId?: string; recipientName?: string } | undefined;
@@ -366,7 +369,13 @@ export default function ChatThreadScreen() {
             />
             <Text style={[styles.bubbleLabel, { color: themeColors[theme].text }]}>
               {message.mediaType === 'video' ? 'Video' : 'Photo'}
-              {downloadingMessageId === message.id ? ` · ${Math.round(downloadProgress * 100)}%` : isExpired ? ' · Expired' : ''}
+              {downloadingMessageId === message.id
+                ? ` · ${Math.round(downloadProgress * 100)}%`
+                : isExpired
+                ? ' · Expired'
+                : !message.viewed && message.fileSize
+                ? ` · ${formatSize(message.fileSize)}`
+                : ''}
             </Text>
             {!message.viewed && <View style={styles.unviewedDot} />}
             {downloadingMessageId === message.id && (

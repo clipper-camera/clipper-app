@@ -15,6 +15,9 @@ export interface ReceivedMessage {
   mediaUrl?: string;
   mediaType: 'image' | 'video' | 'text';
   text?: string;
+  // Bytes, from the mailbox listing, so the size can be shown before download.
+  // Absent on messages received from an older server.
+  fileSize?: number;
   timestamp: number;
   viewed: boolean;
   viewedAt?: number;
@@ -178,7 +181,7 @@ class MessageService {
 
       let hasNewMessages = false;
       for (const item of data) {
-        const { id, fileUrl, timestamp, userId, mediaType, textOverlays, text } = item;
+        const { id, fileUrl, fileSize, timestamp, userId, mediaType, textOverlays, text, notify } = item;
         // The server assigns each message an id; older servers did not, so fall
         // back to the fileUrl/timestamp pair those responses can still be keyed by
         const uniqueId = id ?? `${fileUrl}-${timestamp}`;
@@ -190,28 +193,28 @@ class MessageService {
             userId: userId,
             displayName: contactMap.get(userId) || `User ${userId}`,
             mediaUrl: fileUrl,
+            fileSize: fileSize ?? undefined,
             mediaType: mediaType,
             text: text || undefined,
             timestamp,
-            viewed: false,
+            // Quiet messages (notify: false) skip the notification and unread dot
+            viewed: notify === false,
             textOverlays: textOverlays || undefined
           };
           currentMessages.push(newMessage);
           currentMessageIds.add(uniqueId);
 
-          // Send notification for the new unseen message
-          await this.sendNotification(newMessage);
+          if (notify !== false) {
+            await this.sendNotification(newMessage);
+          }
         }
       }
 
       if (hasNewMessages) {
         await this.saveMessages(currentMessages);
         this.messages = currentMessages;
-        this.hasUnviewed = true;
-      } else {
-        // Update hasUnviewed based on current messages
-        this.hasUnviewed = currentMessages.some(msg => !msg.viewed);
       }
+      this.hasUnviewed = currentMessages.some(msg => !msg.viewed);
 
       // Piggyback on the same poll: the server holds receipts until collected,
       // so this catches deliveries that happened while the app was closed
